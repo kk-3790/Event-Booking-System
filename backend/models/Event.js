@@ -2,17 +2,18 @@ const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema(
   {
-    eventName: { type: String, required: true, trim: true },
+    eventName: { type: String, required: true, trim: true, unique: true },
     category: { type: String, required: true, trim: true },
     venue: { type: String, required: true },
     date: { type: Date, required: true },
-    time: { type: String, required: true }, // e.g. "18:30"
+    time: { type: String, required: true }, // start time, e.g. "18:30"
+    endTime: { type: String, required: true }, // end time, e.g. "21:00"
     ticketPrice: { type: Number, required: true, min: 0 },
     availableSeats: { type: Number, required: true, min: 0 },
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: {
       type: String,
-      enum: ['ACTIVE', 'CANCELLED', 'COMPLETED'],
+      enum: ['ACTIVE', 'ONGOING', 'CANCELLED', 'COMPLETED'],
       default: 'ACTIVE',
     },
   },
