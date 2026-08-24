@@ -4,7 +4,8 @@ const paymentSchema = new mongoose.Schema(
   {
     booking: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', required: true },
     amount: { type: Number, required: true, min: 0 },
-    transactionId: { type: String }, // returned by Razorpay
+    razorpayOrderId: { type: String }, // created before payment happens
+    transactionId: { type: String }, // Razorpay payment ID, set after payment completes
     paymentMethod: { type: String, default: 'UPI' }, // UPI, Card, Netbanking, etc.
     paymentStatus: {
       type: String,
