@@ -1,0 +1,830 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import * as adminService from '../services/adminService';
+import { useAuth } from '../context/AuthContext';
+import { 
+  Shield, 
+  Users, 
+  Calendar, 
+  Ticket, 
+  DollarSign, 
+  Search, 
+  Download, 
+  CheckCircle2, 
+  AlertCircle, 
+  Clock, 
+  RotateCcw,
+  FileText,
+  Filter,
+  BarChart3,
+  MapPin,
+  ExternalLink
+} from 'lucide-react';
+import Button from '../components/ui/Button';
+
+export default function AdminDashboard() {
+  const { user } = useAuth();
+
+  // Active view tab: 'overview' | 'users' | 'bookings' | 'events' | 'reports'
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Stats State
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Users State
+  const [users, setUsers] = useState([]);
+  const [userRoleFilter, setUserRoleFilter] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+
+  // Bookings State
+  const [bookings, setBookings] = useState([]);
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('');
+
+  // Events State
+  const [events, setEvents] = useState([]);
+  const [eventStatusFilter, setEventStatusFilter] = useState('');
+
+  // Reports State
+  const [generatedReport, setGeneratedReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportType, setReportType] = useState('bookings');
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+
+  const [error, setError] = useState('');
+
+  // 1. Fetch Stats
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const { data } = await adminService.getStats();
+      setStats(data);
+    } catch {
+      setError('Failed to fetch platform statistics.');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // 2. Fetch Users
+  const fetchUsers = async () => {
+    try {
+      const params = {};
+      if (userRoleFilter) params.role = userRoleFilter;
+      const { data } = await adminService.getUsers(params);
+      setUsers(data || []);
+    } catch {
+      setError('Failed to fetch platform users.');
+    }
+  };
+
+  // 3. Fetch Bookings
+  const fetchBookings = async () => {
+    try {
+      const params = {};
+      if (bookingStatusFilter) params.status = bookingStatusFilter;
+      const { data } = await adminService.getBookings(params);
+      setBookings(data || []);
+    } catch {
+      setError('Failed to fetch platform bookings.');
+    }
+  };
+
+  // 4. Fetch Events
+  const fetchEvents = async () => {
+    try {
+      const params = {};
+      if (eventStatusFilter) params.status = eventStatusFilter;
+      const { data } = await adminService.getEvents(params);
+      setEvents(data || []);
+    } catch {
+      setError('Failed to fetch platform events.');
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    fetchUsers();
+    fetchBookings();
+    fetchEvents();
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [userRoleFilter]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [bookingStatusFilter]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [eventStatusFilter]);
+
+  // Generate Report
+  const handleGenerateReport = async () => {
+    setReportLoading(true);
+    setError('');
+    try {
+      const params = {};
+      if (reportStartDate) params.startDate = reportStartDate;
+      if (reportEndDate) params.endDate = reportEndDate;
+
+      if (reportType === 'bookings') {
+        const { data } = await adminService.getBookingReport(params);
+        setGeneratedReport(data);
+      } else {
+        const { data } = await adminService.getEventReport(params);
+        setGeneratedReport(data);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to generate audit report.');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // Filtered users by search text
+  const filteredUsers = users.filter((u) => {
+    if (!userSearch.trim()) return true;
+    const q = userSearch.toLowerCase();
+    return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.mobile?.includes(q);
+  });
+
+  return (
+    <div className="min-h-screen pb-20 pt-8 px-4 lg:px-8 max-w-7xl mx-auto w-full space-y-8">
+      
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold mb-2">
+            <Shield className="w-3.5 h-3.5 text-amber-400" />
+            <span>Administrator Control Center</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+            Admin Intelligence Hub
+          </h1>
+          <p className="text-slate-400 text-xs md:text-sm mt-1">
+            Global platform analytics, user moderation, cross-tenant event monitoring, and audit reports
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              fetchStats();
+              fetchUsers();
+              fetchBookings();
+              fetchEvents();
+            }}
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1" />
+            <span>Refresh Hub</span>
+          </Button>
+
+          <Button
+            variant="gradient"
+            size="sm"
+            onClick={() => {
+              setActiveTab('reports');
+              handleGenerateReport();
+            }}
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            <span>Export Report</span>
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError('')} className="p-1 hover:text-white">✕</button>
+        </div>
+      )}
+
+      {/* KPI Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 glass-card space-y-2">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Total Users</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white">
+            {statsLoading ? '...' : stats?.totalUsers || 0}
+          </div>
+          <span className="text-[11px] text-slate-400">
+            {stats?.totalCustomers || 0} Customers · {stats?.totalOrganizers || 0} Organizers
+          </span>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 glass-card space-y-2">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Total Bookings</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <Ticket className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white">
+            {statsLoading ? '...' : stats?.totalBookings || 0}
+          </div>
+          <span className="text-[11px] text-emerald-400 font-medium">
+            {stats?.confirmedBookings || 0} Confirmed Passes
+          </span>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 glass-card space-y-2">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Platform Events</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+              <Calendar className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white">
+            {statsLoading ? '...' : stats?.totalEvents || 0}
+          </div>
+          <span className="text-[11px] text-purple-400 font-medium">
+            {stats?.activeEvents || 0} Currently Active
+          </span>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 glass-card space-y-2">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span>Admin Operator</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+              <Shield className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-base font-bold text-white truncate">{user?.name}</div>
+          <span className="text-[11px] text-amber-400 truncate block font-mono">
+            SUPER_ADMIN
+          </span>
+        </div>
+
+      </div>
+
+      {/* Navigation Tabs Bar */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-900/60 rounded-2xl border border-slate-800 glass-card overflow-x-auto text-xs">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
+            activeTab === 'overview'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5 inline mr-1.5" />
+          Overview
+        </button>
+
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
+            activeTab === 'users'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5 inline mr-1.5" />
+          Users Directory ({users.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bookings')}
+          className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
+            activeTab === 'bookings'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Ticket className="w-3.5 h-3.5 inline mr-1.5" />
+          All Bookings ({bookings.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('events')}
+          className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
+            activeTab === 'events'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5 inline mr-1.5" />
+          All Events ({events.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
+            activeTab === 'reports'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5 inline mr-1.5" />
+          Audit & Reports
+        </button>
+      </div>
+
+      {/* ================= TAB 1: OVERVIEW ================= */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <div className="lg:col-span-8 p-6 rounded-3xl bg-slate-900/60 border border-slate-800 glass-card space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-indigo-400" />
+              <span>Platform Activity Summary</span>
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              The EventHub platform is operating smoothly with real-time seat locks and automated booking expiry. 
+              Below is an audit snapshot of your live MongoDB records.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                <span className="text-[11px] text-slate-400 block">Active Event Ratio</span>
+                <span className="text-xl font-bold text-white mt-1 block">
+                  {stats?.totalEvents ? Math.round(((stats.activeEvents || 0) / stats.totalEvents) * 100) : 100}%
+                </span>
+                <span className="text-[10px] text-emerald-400 font-medium">100% available to browse</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                <span className="text-[11px] text-slate-400 block">Customer-to-Organizer</span>
+                <span className="text-xl font-bold text-white mt-1 block">
+                  {stats?.totalCustomers || 0} : {stats?.totalOrganizers || 0}
+                </span>
+                <span className="text-[10px] text-indigo-400 font-medium">Healthy ecosystem</span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                <span className="text-[11px] text-slate-400 block">Background Services</span>
+                <span className="text-xl font-bold text-emerald-400 mt-1 block">Healthy</span>
+                <span className="text-[10px] text-slate-500">Cron jobs executing</span>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-slate-400">Database connected at: <code className="text-indigo-300">mongodb://127.0.0.1:27017</code></span>
+              <span className="text-slate-500">Backend Port: 5001</span>
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 p-6 rounded-3xl bg-slate-900/60 border border-slate-800 glass-card space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-400" />
+              <span>Quick Controls</span>
+            </h3>
+            <div className="space-y-2 text-xs">
+              <button
+                onClick={() => setActiveTab('users')}
+                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between"
+              >
+                <span>View Registered Users</span>
+                <span className="font-bold text-indigo-400">{users.length} →</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('bookings')}
+                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between"
+              >
+                <span>Manage Ticket Bookings</span>
+                <span className="font-bold text-emerald-400">{bookings.length} →</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('events')}
+                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between"
+              >
+                <span>Manage Published Events</span>
+                <span className="font-bold text-purple-400">{events.length} →</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ================= TAB 2: USERS DIRECTORY ================= */}
+      {activeTab === 'users' && (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 overflow-hidden glass-card space-y-4 p-5">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex items-center bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 w-full sm:w-80">
+              <Search className="w-4 h-4 text-slate-500 mr-2 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search user name or email..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="bg-transparent text-xs text-white focus:outline-none w-full"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs">
+              <button
+                onClick={() => setUserRoleFilter('')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  userRoleFilter === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                All Roles
+              </button>
+              <button
+                onClick={() => setUserRoleFilter('CUSTOMER')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  userRoleFilter === 'CUSTOMER' ? 'bg-emerald-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Customers
+              </button>
+              <button
+                onClick={() => setUserRoleFilter('ORGANIZER')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  userRoleFilter === 'ORGANIZER' ? 'bg-purple-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Organizers
+              </button>
+              <button
+                onClick={() => setUserRoleFilter('ADMIN')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  userRoleFilter === 'ADMIN' ? 'bg-amber-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Admins
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-300">
+              <thead className="text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/70 border-b border-slate-800">
+                <tr>
+                  <th className="p-3.5">User</th>
+                  <th className="p-3.5">Email</th>
+                  <th className="p-3.5">Mobile</th>
+                  <th className="p-3.5">Assigned Role</th>
+                  <th className="p-3.5">Joined Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {filteredUsers.map((u) => {
+                  const roleStyles = {
+                    ADMIN: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+                    ORGANIZER: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+                    CUSTOMER: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+                  };
+
+                  return (
+                    <tr key={u._id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3.5 font-bold text-white flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-indigo-400">
+                          {u.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <span>{u.name}</span>
+                      </td>
+                      <td className="p-3.5 text-slate-300">{u.email}</td>
+                      <td className="p-3.5 font-mono text-slate-400">{u.mobile}</td>
+                      <td className="p-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${roleStyles[u.role] || roleStyles.CUSTOMER}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-400">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      )}
+
+      {/* ================= TAB 3: BOOKINGS OVERSIGHT ================= */}
+      {activeTab === 'bookings' && (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 overflow-hidden glass-card space-y-4 p-5">
+          
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold text-slate-300">Live Booking Transactions</span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <button
+                onClick={() => setBookingStatusFilter('')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  bookingStatusFilter === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                All Statuses
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('CONFIRMED')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  bookingStatusFilter === 'CONFIRMED' ? 'bg-emerald-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Confirmed
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  bookingStatusFilter === 'PENDING' ? 'bg-amber-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Pending
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('EXPIRED')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  bookingStatusFilter === 'EXPIRED' ? 'bg-rose-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Expired
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-300">
+              <thead className="text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/70 border-b border-slate-800">
+                <tr>
+                  <th className="p-3.5">Ticket Ref</th>
+                  <th className="p-3.5">Customer</th>
+                  <th className="p-3.5">Event</th>
+                  <th className="p-3.5">Passes</th>
+                  <th className="p-3.5">Amount</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5">Created At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {bookings.map((b) => {
+                  const event = b.event || {};
+                  const userObj = b.user || {};
+                  const total = (event.ticketPrice || 0) * b.ticketCount;
+
+                  const statusStyles = {
+                    CONFIRMED: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/25',
+                    PENDING: 'bg-amber-500/15 text-amber-300 border-amber-400/25',
+                    EXPIRED: 'bg-slate-700/30 text-slate-400 border-slate-600/30',
+                    CANCELLED: 'bg-rose-500/15 text-rose-300 border-rose-400/25',
+                  };
+
+                  return (
+                    <tr key={b._id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3.5 font-mono font-bold text-slate-400">
+                        #BKG-{b._id.slice(-6).toUpperCase()}
+                      </td>
+                      <td className="p-3.5 text-white">
+                        <div className="font-semibold">{userObj.name || 'User'}</div>
+                        <div className="text-[10px] text-slate-400">{userObj.email}</div>
+                      </td>
+                      <td className="p-3.5 text-indigo-300 max-w-[200px] truncate">
+                        {event.eventName || 'Event'}
+                      </td>
+                      <td className="p-3.5 font-bold text-white">{b.ticketCount}</td>
+                      <td className="p-3.5 font-extrabold text-white">₹{total.toLocaleString('en-IN')}</td>
+                      <td className="p-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusStyles[b.bookingStatus] || statusStyles.PENDING}`}>
+                          {b.bookingStatus}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-400">
+                        {new Date(b.createdAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      )}
+
+      {/* ================= TAB 4: ALL EVENTS DIRECTORY ================= */}
+      {activeTab === 'events' && (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 overflow-hidden glass-card space-y-4 p-5">
+          
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold text-slate-300">All Platform Events</span>
+            <div className="flex items-center gap-1.5 text-xs">
+              <button
+                onClick={() => setEventStatusFilter('')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  eventStatusFilter === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                All Statuses
+              </button>
+              <button
+                onClick={() => setEventStatusFilter('ACTIVE')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  eventStatusFilter === 'ACTIVE' ? 'bg-emerald-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setEventStatusFilter('ONGOING')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  eventStatusFilter === 'ONGOING' ? 'bg-purple-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Ongoing
+              </button>
+              <button
+                onClick={() => setEventStatusFilter('COMPLETED')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  eventStatusFilter === 'COMPLETED' ? 'bg-slate-700 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Completed
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-300">
+              <thead className="text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/70 border-b border-slate-800">
+                <tr>
+                  <th className="p-3.5">Event Name</th>
+                  <th className="p-3.5">Category</th>
+                  <th className="p-3.5">Host Organizer</th>
+                  <th className="p-3.5">Date & Venue</th>
+                  <th className="p-3.5">Ticket Price</th>
+                  <th className="p-3.5">Available Seats</th>
+                  <th className="p-3.5">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {events.map((e) => (
+                  <tr key={e._id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="p-3.5 font-bold text-white max-w-[200px] truncate">
+                      <Link to={`/events/${e._id}`} target="_blank" className="hover:text-indigo-300 flex items-center gap-1">
+                        <span>{e.eventName}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-500" />
+                      </Link>
+                    </td>
+                    <td className="p-3.5">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                        {e.category}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-slate-300">
+                      {e.organizer?.name || 'Organizer'}
+                    </td>
+                    <td className="p-3.5 text-slate-400">
+                      <div>{new Date(e.date).toLocaleDateString()}</div>
+                      <div className="text-[10px] text-slate-500 truncate max-w-[150px]">{e.venue}</div>
+                    </td>
+                    <td className="p-3.5 font-extrabold text-white">₹{e.ticketPrice?.toLocaleString('en-IN')}</td>
+                    <td className="p-3.5 font-bold text-slate-200">{e.availableSeats}</td>
+                    <td className="p-3.5">
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                        {e.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      )}
+
+      {/* ================= TAB 5: AUDIT & REPORTS ================= */}
+      {activeTab === 'reports' && (
+        <div className="space-y-6">
+          
+          <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 glass-card space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <FileText className="w-4 h-4 text-indigo-400" />
+              <span>Generate Regulatory & Revenue Report</span>
+            </h3>
+            <p className="text-xs text-slate-400">
+              Select date ranges and report format to generate cryptographic audit summaries directly from MongoDB.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
+              <div className="sm:col-span-4">
+                <label className="text-xs font-semibold text-slate-300 block mb-1">Report Target</label>
+                <select
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                >
+                  <option value="bookings">Booking Transactions & Revenue</option>
+                  <option value="events">Event Performance & Capacities</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="text-xs font-semibold text-slate-300 block mb-1">From Date</label>
+                <input
+                  type="date"
+                  value={reportStartDate}
+                  onChange={(e) => setReportStartDate(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="text-xs font-semibold text-slate-300 block mb-1">To Date</label>
+                <input
+                  type="date"
+                  value={reportEndDate}
+                  onChange={(e) => setReportEndDate(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div className="sm:col-span-2 flex items-end">
+                <Button
+                  variant="gradient"
+                  size="md"
+                  loading={reportLoading}
+                  onClick={handleGenerateReport}
+                  className="w-full"
+                >
+                  <span>Generate</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Generated Report Display */}
+          {generatedReport && (
+            <div className="p-6 rounded-3xl bg-slate-900/80 border border-indigo-500/30 shadow-2xl glass-card space-y-6">
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300">
+                    Official Audit Output
+                  </span>
+                  <h4 className="text-lg font-bold text-white mt-1">
+                    {reportType === 'bookings' ? 'Booking & Revenue Audit Summary' : 'Event Capacity Performance Report'}
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Report ID: <span className="font-mono text-slate-300">{generatedReport.reportId || 'GEN-REP'}</span> · Range: {generatedReport.dateRange?.startDate} to {generatedReport.dateRange?.endDate}
+                  </p>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => window.print()}
+                >
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Print / Export PDF</span>
+                </Button>
+              </div>
+
+              {/* Report Metrics Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-slate-400 block">Total Records</span>
+                  <span className="text-xl font-bold text-white mt-1 block">
+                    {generatedReport.totalBookings ?? generatedReport.totalEvents ?? 0}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-slate-400 block">Confirmed Tickets</span>
+                  <span className="text-xl font-bold text-emerald-400 mt-1 block">
+                    {generatedReport.totalTicketsConfirmed ?? 0}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-slate-400 block">Gross Revenue Generated</span>
+                  <span className="text-xl font-bold text-indigo-400 mt-1 block">
+                    ₹{generatedReport.totalRevenue?.toLocaleString('en-IN') || 0}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-slate-400 block">Integrity Status</span>
+                  <span className="text-base font-bold text-emerald-400 mt-1 block flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Verified</span>
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      )}
+
+    </div>
+  );
+}

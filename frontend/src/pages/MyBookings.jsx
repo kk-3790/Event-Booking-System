@@ -1,0 +1,640 @@
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import * as bookingService from '../services/bookingService';
+import * as paymentService from '../services/paymentService';
+import { useAuth } from '../context/AuthContext';
+import { 
+  Ticket, 
+  Calendar, 
+  Clock, 
+  MapPin, 
+  CheckCircle2, 
+  AlertCircle, 
+  Printer, 
+  XCircle, 
+  QrCode, 
+  ArrowRight, 
+  ShieldCheck, 
+  RotateCcw,
+  Lock,
+  CreditCard,
+  Hourglass,
+  Sparkles
+} from 'lucide-react';
+import Button from '../components/ui/Button';
+import PaymentModal from '../components/PaymentModal';
+import ReceiptModal from '../components/ReceiptModal';
+
+// Countdown Timer Component for PENDING bookings
+function ExpiryCountdown({ expiresAt }) {
+  const [timeLeft, setTimeLeft] = useState('');
+  const [isExpired, setIsExpired] = useState(false);
+
+  useEffect(() => {
+    if (!expiresAt) return;
+
+    const calcTime = () => {
+      const now = new Date().getTime();
+      const target = new Date(expiresAt).getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        setTimeLeft('Hold expired');
+        setIsExpired(true);
+      } else {
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft(`${mins}m ${secs < 10 ? '0' : ''}${secs}s`);
+        setIsExpired(false);
+      }
+    };
+
+    calcTime();
+    const interval = setInterval(calcTime, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  if (!expiresAt) return null;
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold ${
+      isExpired 
+        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
+        : 'bg-amber-500/20 text-amber-300 border border-amber-400/30 animate-pulse'
+    }`}>
+      <Hourglass className="w-3.5 h-3.5" />
+      <span>{timeLeft}</span>
+    </span>
+  );
+}
+
+export default function MyBookings() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  // Filter tab: 'ALL' | 'CONFIRMED' | 'PENDING' | 'CANCELLED'
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Cancel modal state
+  const [cancellingBooking, setCancellingBooking] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+
+  // Payment & Receipt modal state
+  const [payingBooking, setPayingBooking] = useState(null);
+  const [receiptBooking, setReceiptBooking] = useState(null);
+  const [paymentToast, setPaymentToast] = useState('');
+
+  useEffect(() => {
+    if (location.state?.paymentToast) {
+      setPaymentToast(location.state.paymentToast);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  const fetchBookings = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await bookingService.getMyBookings();
+      setBookings(data || []);
+    } catch {
+      setError('Failed to fetch your bookings. Please try refreshing the page.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const handleCancelBooking = async () => {
+    if (!cancellingBooking) return;
+    setCancelLoading(true);
+    setCancelError('');
+    try {
+      await bookingService.cancelBooking(cancellingBooking._id);
+      setBookings((prev) =>
+        prev.map((b) =>
+          b._id === cancellingBooking._id ? { ...b, bookingStatus: 'CANCELLED' } : b
+        )
+      );
+      setCancellingBooking(null);
+    } catch (err) {
+      setCancelError(err.response?.data?.message || 'Failed to cancel booking. Please try again.');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    if (payingBooking) {
+      setBookings((prev) =>
+        prev.map((b) => (b._id === payingBooking._id ? { ...b, bookingStatus: 'CONFIRMED' } : b))
+      );
+      setPaymentToast(`Payment verified! Pass for ${payingBooking.event?.eventName} is now confirmed.`);
+      setPayingBooking(null);
+    }
+  };
+
+  const filteredBookings = bookings.filter((b) => {
+    if (statusFilter === 'ALL') return true;
+    return b.bookingStatus === statusFilter;
+  });
+
+  const confirmedCount = bookings.filter((b) => b.bookingStatus === 'CONFIRMED').length;
+  const pendingCount = bookings.filter((b) => b.bookingStatus === 'PENDING').length;
+  const cancelledCount = bookings.filter((b) => b.bookingStatus === 'CANCELLED').length;
+
+  return (
+    <div className="min-h-screen pb-20 pt-8 px-4 lg:px-8 max-w-6xl mx-auto w-full space-y-8">
+      
+      {/* Toast Notification */}
+      {paymentToast && (
+        <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs flex items-center justify-between shadow-xl">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-semibold">{paymentToast}</span>
+          </div>
+          <button onClick={() => setPaymentToast('')} className="p-1 text-slate-400 hover:text-white cursor-pointer">
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold mb-2">
+            <Ticket className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Digital Ticket Wallet</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+            My Booked Passes
+          </h1>
+          <p className="text-slate-400 text-xs md:text-sm mt-1">
+            Access your verified entry tickets, QR gate codes, and booking receipts
+          </p>
+        </div>
+
+        <Link to="/">
+          <Button variant="secondary" size="sm">
+            <span>Explore More Events</span>
+            <ArrowRight className="w-4 h-4 ml-1.5" />
+          </Button>
+        </Link>
+      </div>
+
+      {/* Wallet Status Overview Pills */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-2 bg-slate-900/60 rounded-2xl border border-slate-800 glass-card text-xs">
+        <div className="flex items-center gap-1.5 overflow-x-auto">
+          <button
+            onClick={() => setStatusFilter('ALL')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer ${
+              statusFilter === 'ALL'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            All Passes ({bookings.length})
+          </button>
+          <button
+            onClick={() => setStatusFilter('CONFIRMED')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer ${
+              statusFilter === 'CONFIRMED'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Confirmed ({confirmedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('PENDING')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer ${
+              statusFilter === 'PENDING'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Pending Payment ({pendingCount})
+          </button>
+          <button
+            onClick={() => setStatusFilter('CANCELLED')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition cursor-pointer ${
+              statusFilter === 'CANCELLED'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Cancelled ({cancelledCount})
+          </button>
+        </div>
+
+        <button
+          onClick={fetchBookings}
+          className="flex items-center gap-1 px-3 py-1.5 text-slate-400 hover:text-white transition cursor-pointer"
+          title="Refresh bookings"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Refresh</span>
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={fetchBookings} className="underline font-semibold cursor-pointer">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Loading Skeleton */}
+      {loading && (
+        <div className="space-y-4">
+          {[1, 2].map((n) => (
+            <div key={n} className="rounded-3xl bg-slate-900/40 border border-slate-800 p-8 h-48 animate-pulse"></div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && filteredBookings.length === 0 && (
+        <div className="text-center py-16 px-4 rounded-3xl bg-slate-900/40 border border-slate-800 max-w-md mx-auto space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto text-2xl">
+            🎟️
+          </div>
+          <h3 className="text-lg font-bold text-white">No passes found</h3>
+          <p className="text-slate-400 text-xs">
+            {statusFilter === 'ALL'
+              ? 'You have not booked any tickets yet. Explore upcoming experiences and book your first pass!'
+              : `You have no bookings matching the "${statusFilter}" status.`}
+          </p>
+          <Link to="/">
+            <Button variant="gradient" size="sm" className="mt-2">
+              Browse Live Events
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Bookings List */}
+      {!loading && filteredBookings.length > 0 && (
+        <div className="space-y-6">
+          {filteredBookings.map((booking) => {
+            const event = booking.event || {};
+            const isConfirmed = booking.bookingStatus === 'CONFIRMED';
+            const isPending = booking.bookingStatus === 'PENDING';
+            const isCancelled = booking.bookingStatus === 'CANCELLED';
+
+            const formattedEventDate = event.date
+              ? new Date(event.date).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : 'Date TBD';
+
+            const formattedBookedAt = booking.createdAt
+              ? new Date(booking.createdAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : 'N/A';
+
+            const formattedBookedTime = booking.bookingTime || (booking.createdAt
+              ? new Date(booking.createdAt).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true,
+                })
+              : '');
+
+            const totalAmount = booking.totalAmount || ((event.ticketPrice || 0) * booking.ticketCount);
+            const ticketRef = `#BKG-${booking._id.slice(-6).toUpperCase()}`;
+
+            return (
+              <div
+                key={booking._id}
+                className={`rounded-3xl border shadow-2xl overflow-hidden glass-card transition-all ${
+                  isPending 
+                    ? 'border-amber-500/40 bg-gradient-to-r from-amber-950/20 via-slate-900/80 to-slate-900/90' 
+                    : 'border-slate-800 bg-slate-900/80 hover:border-slate-700'
+                }`}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-12">
+                  
+                  {/* Left Side: Ticket Details */}
+                  <div className="md:col-span-8 p-6 md:p-8 space-y-6">
+                    
+                    {/* Status Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        {isConfirmed && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-400/25 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            Booking Confirmed
+                          </span>
+                        )}
+                        {isPending && (
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                              Payment Pending
+                            </span>
+                            <ExpiryCountdown expiresAt={booking.expiresAt} />
+                          </div>
+                        )}
+                        {isCancelled && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-400/25 flex items-center gap-1.5">
+                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                            Booking Cancelled
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-xs font-mono font-bold text-slate-500">
+                        {ticketRef}
+                      </span>
+                    </div>
+
+                    {/* Pending Urgent Notice Banner */}
+                    {isPending && (
+                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Hourglass className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>
+                            Seats temporarily held for 10 minutes. Complete payment to secure your booking.
+                          </span>
+                        </div>
+                        <Button
+                          variant="gradient"
+                          size="sm"
+                          onClick={() => setPayingBooking(booking)}
+                          className="shrink-0"
+                        >
+                          <CreditCard className="w-3.5 h-3.5 mr-1" />
+                          <span>Pay Now</span>
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Event Title & Location */}
+                    <div>
+                      <h3 className="text-xl md:text-2xl font-black text-white hover:text-indigo-300 transition-colors">
+                        <Link to={`/events/${event._id}`}>{event.eventName || 'Event Details'}</Link>
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 mt-2">
+                        <span className="flex items-center gap-1 text-slate-300">
+                          <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                          {event.venue || 'Venue TBD'}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-slate-300">
+                          <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                          {formattedEventDate}
+                        </span>
+                        {event.time && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1 text-slate-300">
+                              <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                              {event.time}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Passenger & Ticket Breakdown Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-800/80 text-xs">
+                      <div>
+                        <span className="text-slate-500 block text-[11px]">Primary Attendee</span>
+                        <span className="font-bold text-white mt-0.5 block truncate">
+                          {user?.name || 'Customer'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px]">Pass Quantity</span>
+                        <span className="font-bold text-white mt-0.5 block">
+                          {booking.ticketCount} {booking.ticketCount === 1 ? 'Ticket' : 'Tickets'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px]">Amount Payable</span>
+                        <span className={`font-extrabold mt-0.5 block ${isPending ? 'text-amber-400' : 'text-indigo-400'}`}>
+                          ₹{totalAmount.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px] flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-indigo-400" />
+                          Booking Time
+                        </span>
+                        <span className="font-bold text-white mt-0.5 block font-mono">
+                          {formattedBookedTime || 'N/A'}
+                        </span>
+                        <span className="text-[11px] text-slate-400 block">
+                          {formattedBookedAt}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Ticket Actions */}
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      {isConfirmed && (
+                        <button
+                          onClick={() => setReceiptBooking(booking)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Print Pass / Receipt</span>
+                        </button>
+                      )}
+
+                      {isPending && (
+                        <Button
+                          variant="gradient"
+                          size="sm"
+                          onClick={() => setPayingBooking(booking)}
+                        >
+                          <CreditCard className="w-3.5 h-3.5 mr-1.5" />
+                          <span>Complete Payment (₹{totalAmount})</span>
+                        </Button>
+                      )}
+
+                      {!isCancelled && (
+                        <button
+                          onClick={() => setCancellingBooking(booking)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Cancel Booking</span>
+                        </button>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* Right Side: QR Gate Pass Stub */}
+                  <div className={`md:col-span-4 p-6 md:p-8 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col items-center justify-center text-center space-y-4 ${
+                    isPending ? 'bg-amber-950/20' : 'bg-slate-950/70'
+                  }`}>
+                    
+                    {isConfirmed ? (
+                      <>
+                        <div className="p-3 bg-white rounded-2xl shadow-xl">
+                          <div className="w-28 h-28 bg-slate-950 rounded-xl p-2 flex flex-col justify-between">
+                            <div className="flex justify-between">
+                              <div className="w-6 h-6 bg-white rounded"></div>
+                              <div className="w-6 h-6 bg-white rounded"></div>
+                            </div>
+                            <div className="flex justify-center items-center">
+                              <QrCode className="w-7 h-7 text-indigo-400" />
+                            </div>
+                            <div className="flex justify-between">
+                              <div className="w-6 h-6 bg-white rounded"></div>
+                              <div className="w-2 h-2 bg-white rounded-full"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-mono font-bold text-slate-200 block">
+                            FAST-TRACK GATE ENTRY
+                          </span>
+                          <p className="text-[10px] text-slate-500">
+                            Scan directly from your mobile device
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Verified Genuine Pass</span>
+                        </div>
+                      </>
+                    ) : isPending ? (
+                      <>
+                        <div className="w-24 h-24 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex flex-col items-center justify-center text-amber-400 space-y-1">
+                          <Lock className="w-8 h-8 text-amber-400" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider font-mono">LOCKED</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-xs font-mono font-bold text-amber-300 block">
+                            PAYMENT REQUIRED
+                          </span>
+                          <p className="text-[10px] text-slate-400 max-w-[170px]">
+                            Entry QR gate code will unlock as soon as payment is confirmed
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-24 h-24 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex flex-col items-center justify-center text-rose-400 space-y-1">
+                          <XCircle className="w-8 h-8 text-rose-400" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider font-mono">VOID</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-xs font-mono font-bold text-rose-300 block">
+                            PASS CANCELLED
+                          </span>
+                          <p className="text-[10px] text-slate-400 max-w-[170px]">
+                            Seats have been released back to other attendees
+                          </p>
+                        </div>
+                      </>
+                    )}
+
+                  </div>
+
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Cancel Booking Confirmation Modal */}
+      {cancellingBooking && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-3xl bg-slate-900 border border-slate-800 p-6 md:p-8 shadow-2xl space-y-6">
+            
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto text-xl border border-rose-500/20">
+              <XCircle className="w-6 h-6 text-rose-400" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="text-xl font-bold text-white">Cancel Booking?</h3>
+              <p className="text-xs text-slate-400">
+                Are you sure you want to cancel your passes for{' '}
+                <span className="text-white font-semibold">
+                  {cancellingBooking.event?.eventName}
+                </span>
+                ? Your reserved seats will be immediately released back to other attendees.
+              </p>
+            </div>
+
+            {cancelError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+                {cancelError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCancellingBooking(null)}
+                disabled={cancelLoading}
+              >
+                Keep Booking
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                loading={cancelLoading}
+                onClick={handleCancelBooking}
+              >
+                Confirm Cancellation
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Payment Gateway Modal */}
+      {payingBooking && (
+        <PaymentModal
+          isOpen={!!payingBooking}
+          onClose={() => setPayingBooking(null)}
+          booking={payingBooking}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentFailure={() => {}}
+        />
+      )}
+
+      {/* Official Tax Invoice & Pass Receipt Modal */}
+      {receiptBooking && (
+        <ReceiptModal
+          isOpen={!!receiptBooking}
+          onClose={() => setReceiptBooking(null)}
+          booking={receiptBooking}
+        />
+      )}
+
+    </div>
+  );
+}
+

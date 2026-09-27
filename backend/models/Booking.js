@@ -5,6 +5,7 @@ const bookingSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
     bookingDate: { type: Date, default: Date.now },
+    bookingTime: { type: String }, // formatted time string, e.g. "05:14 PM"
     ticketCount: { type: Number, required: true, min: 1 },
     bookingStatus: {
       type: String,
@@ -17,6 +18,12 @@ const bookingSchema = new mongoose.Schema(
     expiresAt: { type: Date },
     // set true if this booking was made via the Lucky Discount / Reward Draw promo ticket
     isPromotional: { type: Boolean, default: false },
+    promoCode: { type: String },
+    // Authoritative pricing breakdown
+    unitPrice: { type: Number },
+    subtotal: { type: Number },
+    platformFee: { type: Number, default: 0 },
+    totalAmount: { type: Number },
   },
   { timestamps: true }
 );

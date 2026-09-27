@@ -33,14 +33,43 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ message: `This booking is ${booking.bookingStatus.toLowerCase()} and cannot be paid for` });
     }
 
-    const amount = booking.ticketCount * booking.event.ticketPrice;
+    // Calculate authoritative breakdown
+    let unitPrice = booking.unitPrice;
+    if (!unitPrice) {
+      unitPrice = booking.event.ticketPrice;
+      if (booking.isPromotional) {
+        try {
+          const RewardDraw = require('../models/RewardDraw');
+          const draw = await RewardDraw.findOne({ event: booking.event._id, drawStatus: 'OPEN' });
+          if (draw && draw.promoTicketPrice) {
+            unitPrice = draw.promoTicketPrice;
+          } else {
+            unitPrice = Math.round(booking.event.ticketPrice * 0.8);
+          }
+        } catch (e) {
+          unitPrice = Math.round(booking.event.ticketPrice * 0.8);
+        }
+      }
+    }
+
+    const subtotal = booking.subtotal || (booking.ticketCount * unitPrice);
+    const platformFee = booking.platformFee !== undefined ? booking.platformFee : Math.round(subtotal * 0.05);
+    const amount = booking.totalAmount || (subtotal + platformFee);
 
     // Reuse an existing PENDING payment for this booking if one already
     // exists (e.g. user refreshed the payment page), instead of creating
     // duplicate order records every retry.
     let payment = await Payment.findOne({ booking: booking._id, paymentStatus: 'PENDING' });
 
-    if (!payment) {
+    if (payment && payment.amount !== amount) {
+      const order = await paymentService.createOrder({
+        amountInRupees: amount,
+        receiptId: booking._id.toString(),
+      });
+      payment.amount = amount;
+      payment.razorpayOrderId = order.id;
+      await payment.save();
+    } else if (!payment) {
       const order = await paymentService.createOrder({
         amountInRupees: amount,
         receiptId: booking._id.toString(),
@@ -57,9 +86,12 @@ const createOrder = async (req, res) => {
     res.status(201).json({
       message: 'Order created, proceed to payment',
       razorpayOrderId: payment.razorpayOrderId,
-      amount,
+      amount: payment.amount,
+      subtotal,
+      platformFee,
       currency: 'INR',
-      razorpayKeyId: process.env.RAZORPAY_KEY_ID, // frontend checkout widget needs this
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_simulated',
+      isSimulated: paymentService.isSimulation(),
       paymentId: payment._id,
     });
   } catch (err) {
@@ -71,7 +103,7 @@ const createOrder = async (req, res) => {
 // POST /api/payments/verify  (Customer, owner of the booking)
 const verifyPayment = async (req, res) => {
   try {
-    const { paymentId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+    const { paymentId, razorpayOrderId, razorpayPaymentId, razorpaySignature, paymentMethod } = req.body;
 
     if (!paymentId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return res.status(400).json({ message: 'Missing required payment verification fields' });
@@ -109,12 +141,27 @@ const verifyPayment = async (req, res) => {
         $inc: { availableSeats: payment.booking.ticketCount },
       });
 
+      // Dispatch failure notification
+      const { sendEmailNotification } = require('../services/notificationService');
+      const failedBooking = await Booking.findById(payment.booking._id).populate('user').populate('event');
+      if (failedBooking?.user) {
+        sendEmailNotification({
+          user: failedBooking.user,
+          booking: failedBooking,
+          type: 'PAYMENT_FAILED',
+          message: `Payment authorization failed for your reservation on "${failedBooking.event?.eventName}". Held seats have been released.`,
+        }).catch((e) => console.error('Failed to dispatch payment failure notification:', e.message));
+      }
+
       return res.status(400).json({ message: 'Payment verification failed. Seats have been released.' });
     }
 
     // Payment confirmed genuine — finalize everything
     payment.paymentStatus = 'SUCCESS';
     payment.transactionId = razorpayPaymentId;
+    if (paymentMethod) {
+      payment.paymentMethod = paymentMethod;
+    }
     await payment.save();
 
     payment.booking.bookingStatus = 'CONFIRMED';
@@ -125,6 +172,18 @@ const verifyPayment = async (req, res) => {
       payment: payment._id,
       amount: payment.amount,
     });
+
+    // Dispatch booking confirmation notification & email
+    const { sendEmailNotification } = require('../services/notificationService');
+    const confirmedBooking = await Booking.findById(payment.booking._id).populate('user').populate('event');
+    if (confirmedBooking?.user) {
+      sendEmailNotification({
+        user: confirmedBooking.user,
+        booking: confirmedBooking,
+        type: 'BOOKING_CONFIRMATION',
+        message: `Your booking for "${confirmedBooking.event?.eventName}" is confirmed! (${confirmedBooking.ticketCount} passes reserved). Your fast-track QR pass is unlocked in wallet.`,
+      }).catch((e) => console.error('Failed to dispatch booking confirmation notification:', e.message));
+    }
 
     res.status(200).json({
       message: 'Payment successful, booking confirmed',
@@ -155,4 +214,24 @@ const getPaymentStatus = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, verifyPayment, getPaymentStatus };
+// GET /api/payments/booking/:bookingId  (Customer owner or Admin)
+const getPaymentByBooking = async (req, res) => {
+  try {
+    const payment = await Payment.findOne({ booking: req.params.bookingId }).populate({
+      path: 'booking',
+      populate: { path: 'event', select: 'eventName date venue ticketPrice' },
+    });
+    if (!payment) {
+      return res.status(404).json({ message: 'No payment record found for this booking' });
+    }
+    if (req.user.role !== 'ADMIN' && payment.booking.user.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You are not allowed to view this payment' });
+    }
+    const receipt = await Receipt.findOne({ payment: payment._id });
+    res.status(200).json({ payment, receipt });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch payment details', error: err.message });
+  }
+};
+
+module.exports = { createOrder, verifyPayment, getPaymentStatus, getPaymentByBooking };

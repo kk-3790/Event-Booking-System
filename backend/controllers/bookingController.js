@@ -30,7 +30,7 @@ const expireIfNeeded = async (booking) => {
 // POST /api/bookings  (Customer only)
 const bookTicket = async (req, res) => {
   try {
-    const { eventId, ticketCount } = req.body;
+    const { eventId, ticketCount, isPromotional, promoCode } = req.body;
 
     if (!eventId || !ticketCount || ticketCount < 1) {
       return res.status(400).json({ message: 'eventId and a valid ticketCount are required' });
@@ -44,14 +44,6 @@ const bookTicket = async (req, res) => {
       return res.status(400).json({ message: 'This event has been cancelled' });
     }
 
-    // Check the event's actual live status right now (based on real
-    // start/end time), instead of only trusting the stored `status` field.
-    // `status` only flips when someone browses/searches events or the
-    // hourly job runs, so it can be stale — without this check, someone
-    // could book a ticket for an event that has already started or ended.
-    // Bookings are only allowed while the event is still ACTIVE (i.e.
-    // before its start time) — once it's ONGOING or COMPLETED, no new
-    // tickets can be sold.
     const liveStatus = computeLiveStatus(event);
     if (liveStatus !== 'ACTIVE') {
       if (event.status !== liveStatus) {
@@ -65,11 +57,6 @@ const bookTicket = async (req, res) => {
       return res.status(400).json({ message });
     }
 
-    // Atomic seat check-and-decrement: only succeeds if availableSeats is
-    // still >= ticketCount at the moment of the update. This avoids the
-    // classic "read seats, check, then save" race condition where two
-    // concurrent requests could both pass the check and oversell the
-    // last seat(s). If two requests hit this at once, only one succeeds.
     const updatedEvent = await Event.findOneAndUpdate(
       { _id: eventId, availableSeats: { $gte: ticketCount } },
       { $inc: { availableSeats: -ticketCount } },
@@ -82,13 +69,69 @@ const bookTicket = async (req, res) => {
 
     const expiresAt = new Date(Date.now() + BOOKING_HOLD_MINUTES * 60 * 1000);
 
+    const STATIC_PROMOS = {
+      'LUCKY20': 20,
+      'EARLYBIRD': 15,
+      'VIP50': 50,
+      'EVENTHUB10': 10,
+    };
+
+    let unitPrice = event.ticketPrice;
+    const cleanPromo = (promoCode || '').trim().toUpperCase();
+
+    if (cleanPromo && STATIC_PROMOS[cleanPromo]) {
+      const discount = STATIC_PROMOS[cleanPromo];
+      unitPrice = Math.round(event.ticketPrice * (1 - discount / 100));
+    } else if (isPromotional || cleanPromo) {
+      try {
+        const RewardDraw = require('../models/RewardDraw');
+        const draw = await RewardDraw.findOne({ event: eventId, drawStatus: 'OPEN' });
+        if (draw && draw.promoTicketPrice) {
+          unitPrice = draw.promoTicketPrice;
+        } else if (draw && draw.discountPercentage) {
+          unitPrice = Math.round(event.ticketPrice * (1 - draw.discountPercentage / 100));
+        } else {
+          unitPrice = Math.round(event.ticketPrice * 0.8);
+        }
+      } catch (err) {
+        unitPrice = Math.round(event.ticketPrice * 0.8);
+      }
+    }
+
+    const subtotal = ticketCount * unitPrice;
+    const platformFee = Math.round(subtotal * 0.05);
+    const totalAmount = subtotal + platformFee;
+
+    const now = new Date();
+    const bookingTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
     const booking = await Booking.create({
       user: req.user.id,
       event: eventId,
+      bookingDate: now,
+      bookingTime,
       ticketCount,
+      promoCode: cleanPromo || undefined,
+      unitPrice,
+      subtotal,
+      platformFee,
+      totalAmount,
       bookingStatus: 'PENDING', // becomes CONFIRMED once payment succeeds
       expiresAt,
+      isPromotional: Boolean(isPromotional || cleanPromo),
     });
+
+    if (isPromotional) {
+      const RewardDraw = require('../models/RewardDraw');
+      await RewardDraw.findOneAndUpdate(
+        { event: eventId, drawStatus: 'OPEN' },
+        { $addToSet: { participants: req.user.id } }
+      );
+    }
 
     res.status(201).json({
       message: `Booking created successfully. Complete payment within ${BOOKING_HOLD_MINUTES} minutes or seats will be released.`,
@@ -169,4 +212,49 @@ const getBookingById = async (req, res) => {
   }
 };
 
-module.exports = { bookTicket, cancelBooking, getMyBookings, getBookingById };
+// Get all attendees / bookings for an event (Organizer owner or Admin)
+// GET /api/bookings/event/:eventId
+const getEventAttendees = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.eventId);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    if (req.user.role !== 'ADMIN' && event.organizer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'You are not authorized to view attendees for this event' });
+    }
+
+    const bookings = await Booking.find({ event: req.params.eventId })
+      .populate('user', 'name email mobile')
+      .sort({ createdAt: -1 });
+
+    const confirmedBookings = bookings.filter((b) => b.bookingStatus === 'CONFIRMED');
+    const totalConfirmedSeats = confirmedBookings.reduce((sum, b) => sum + (b.ticketCount || 0), 0);
+    const totalRevenue = totalConfirmedSeats * (event.ticketPrice || 0);
+
+    res.status(200).json({
+      event: {
+        _id: event._id,
+        eventName: event.eventName,
+        date: event.date,
+        time: event.time,
+        venue: event.venue,
+        totalSeats: event.totalSeats,
+        availableSeats: event.availableSeats,
+        ticketPrice: event.ticketPrice,
+      },
+      stats: {
+        totalBookings: bookings.length,
+        confirmedBookings: confirmedBookings.length,
+        totalConfirmedSeats,
+        totalRevenue,
+      },
+      attendees: bookings,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch event attendees', error: err.message });
+  }
+};
+
+module.exports = { bookTicket, cancelBooking, getMyBookings, getBookingById, getEventAttendees };
