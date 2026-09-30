@@ -6,11 +6,13 @@ const {
   getMyBookings,
   getBookingById,
   getEventAttendees,
+  checkInAttendee,
 } = require('../controllers/bookingController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
 // All booking routes require login
 router.post('/', protect, authorizeRoles('CUSTOMER'), bookTicket);
+router.post('/check-in', protect, authorizeRoles('ORGANIZER', 'ADMIN'), checkInAttendee);
 router.get('/my', protect, getMyBookings);
 router.get('/event/:eventId', protect, authorizeRoles('ORGANIZER', 'ADMIN'), getEventAttendees);
 router.get('/:id', protect, getBookingById);

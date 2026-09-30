@@ -29,9 +29,23 @@ const syncEventStatuses = async () => {
 // POST /api/events  (Organizer only)
 const createEvent = async (req, res) => {
   try {
-    const { eventName, category, venue, date, time, endTime, ticketPrice, availableSeats } = req.body;
+    const {
+      eventName,
+      category,
+      venue,
+      date,
+      time,
+      endTime,
+      ticketPrice,
+      availableSeats,
+      totalSeats,
+      bannerImage,
+      description,
+      ticketTiers,
+    } = req.body;
 
-    if (!eventName || !category || !venue || !date || !time || !endTime || ticketPrice == null || availableSeats == null) {
+    const hasTiers = Array.isArray(ticketTiers) && ticketTiers.length > 0;
+    if (!eventName || !category || !venue || !date || !time || !endTime || (!hasTiers && (ticketPrice == null || availableSeats == null))) {
       return res.status(400).json({ message: 'All event fields are required, including endTime' });
     }
 
@@ -46,6 +60,24 @@ const createEvent = async (req, res) => {
       return res.status(409).json({ message: 'An event with this name already exists. Please choose a different name.' });
     }
 
+    let formattedTiers = [];
+    let finalAvailableSeats = Number(availableSeats) || 0;
+    let finalTotalSeats = Number(totalSeats) || finalAvailableSeats;
+    let finalPrice = Number(ticketPrice) || 0;
+
+    if (hasTiers) {
+      formattedTiers = ticketTiers.map((t) => ({
+        tierName: t.tierName || 'Tier Pass',
+        price: Number(t.price) || 0,
+        totalSeats: Number(t.totalSeats) || 1,
+        availableSeats: Number(t.availableSeats !== undefined ? t.availableSeats : t.totalSeats) || 1,
+        perks: t.perks || '',
+      }));
+      finalTotalSeats = formattedTiers.reduce((sum, t) => sum + t.totalSeats, 0);
+      finalAvailableSeats = formattedTiers.reduce((sum, t) => sum + t.availableSeats, 0);
+      finalPrice = Math.min(...formattedTiers.map((t) => t.price));
+    }
+
     const event = await Event.create({
       eventName,
       category,
@@ -53,15 +85,17 @@ const createEvent = async (req, res) => {
       date,
       time,
       endTime,
-      ticketPrice,
-      availableSeats,
+      ticketPrice: finalPrice,
+      totalSeats: finalTotalSeats,
+      availableSeats: finalAvailableSeats,
+      bannerImage: bannerImage || '',
+      description: description || '',
+      ticketTiers: formattedTiers,
       organizer: req.user.id,
     });
 
     res.status(201).json({ message: 'Event added successfully', event });
   } catch (err) {
-    // Handles the rare race-condition case where two requests with the same
-    // eventName land at nearly the same time and both pass the check above.
     if (err.code === 11000) {
       return res.status(409).json({ message: 'An event with this name already exists. Please choose a different name.' });
     }
@@ -94,10 +128,36 @@ const updateEvent = async (req, res) => {
       }
     }
 
-    const allowedFields = ['eventName', 'category', 'venue', 'date', 'time', 'endTime', 'ticketPrice', 'availableSeats', 'status'];
+    const allowedFields = [
+      'eventName',
+      'category',
+      'venue',
+      'date',
+      'time',
+      'endTime',
+      'ticketPrice',
+      'availableSeats',
+      'totalSeats',
+      'status',
+      'bannerImage',
+      'description',
+      'ticketTiers',
+    ];
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) event[field] = req.body[field];
     });
+
+    if (req.body.ticketTiers && Array.isArray(req.body.ticketTiers) && req.body.ticketTiers.length > 0) {
+      event.ticketTiers = req.body.ticketTiers.map((t) => ({
+        tierName: t.tierName || 'Tier Pass',
+        price: Number(t.price) || 0,
+        totalSeats: Number(t.totalSeats) || 1,
+        availableSeats: Number(t.availableSeats !== undefined ? t.availableSeats : t.totalSeats) || 1,
+        perks: t.perks || '',
+      }));
+      event.totalSeats = event.ticketTiers.reduce((sum, t) => sum + t.totalSeats, 0);
+      event.availableSeats = event.ticketTiers.reduce((sum, t) => sum + t.availableSeats, 0);
+    }
 
     await event.save();
     res.status(200).json({ message: 'Event updated successfully', event });

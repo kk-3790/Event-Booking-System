@@ -234,4 +234,126 @@ const getPaymentByBooking = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, verifyPayment, getPaymentStatus, getPaymentByBooking };
+// POST /api/payments/razorpay/webhook  (Called asynchronously by Razorpay)
+const handleRazorpayWebhook = async (req, res) => {
+  try {
+    const crypto = require('crypto');
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+    const signature = req.headers['x-razorpay-signature'];
+
+    // Verify HMAC-SHA256 signature if secret and signature are provided
+    if (secret && signature) {
+      const shasum = crypto.createHmac('sha256', secret);
+      shasum.update(req.rawBody || JSON.stringify(req.body));
+      const digest = shasum.digest('hex');
+      if (digest !== signature) {
+        console.warn('⚠️ Webhook signature mismatch');
+        return res.status(400).json({ status: 'invalid_signature' });
+      }
+    }
+
+    const event = req.body.event;
+    const payload = req.body.payload || {};
+
+    if (event === 'payment.captured' || event === 'order.paid') {
+      const paymentEntity = payload.payment?.entity || {};
+      const orderId = paymentEntity.order_id || payload.order?.entity?.id;
+      const paymentId = paymentEntity.id;
+
+      let booking = null;
+      let existingPayment = null;
+
+      if (orderId) {
+        existingPayment = await Payment.findOne({ razorpayOrderId: orderId });
+      }
+
+      if (existingPayment) {
+        booking = await Booking.findById(existingPayment.booking).populate('event user');
+      }
+
+      if (!booking && paymentEntity.notes?.bookingId) {
+        booking = await Booking.findById(paymentEntity.notes.bookingId).populate('event user');
+      }
+
+      if (booking && booking.bookingStatus === 'PENDING') {
+        booking.bookingStatus = 'CONFIRMED';
+        await booking.save();
+
+        if (existingPayment) {
+          existingPayment.paymentStatus = 'SUCCESS';
+          existingPayment.transactionId = paymentId || existingPayment.transactionId;
+          await existingPayment.save();
+        } else {
+          existingPayment = await Payment.create({
+            booking: booking._id,
+            amount: booking.totalAmount || (paymentEntity.amount / 100),
+            paymentMethod: paymentEntity.method?.toUpperCase() || 'RAZORPAY_WEBHOOK',
+            paymentStatus: 'SUCCESS',
+            transactionId: paymentId || `pay_wh_${Date.now()}`,
+            razorpayOrderId: orderId,
+          });
+        }
+
+        // Generate receipt if not existing
+        let receipt = await Receipt.findOne({ payment: existingPayment._id });
+        if (!receipt) {
+          receipt = await Receipt.create({
+            payment: existingPayment._id,
+            amount: existingPayment.amount || booking.totalAmount,
+            generatedDate: new Date(),
+          });
+        }
+
+        // Add to lucky draw if promotional
+        if (booking.isPromotional) {
+          try {
+            const RewardDraw = require('../models/RewardDraw');
+            await RewardDraw.findOneAndUpdate(
+              { event: booking.event._id, drawStatus: 'OPEN' },
+              { $addToSet: { participants: booking.user._id } }
+            );
+          } catch (e) {
+            console.error('Webhook: Lucky draw enrollment error:', e.message);
+          }
+        }
+
+        // Dispatch confirmation email
+        try {
+          const { sendEmailNotification } = require('../services/notificationService');
+          sendEmailNotification({
+            user: booking.user,
+            booking: booking,
+            type: 'BOOKING_CONFIRMATION',
+            message: `Your booking for "${booking.event?.eventName}" has been confirmed via gateway webhook!`,
+          }).catch((e) => console.error('Webhook notification dispatch failed:', e.message));
+        } catch (e) {
+          // notification ignore
+        }
+      }
+    } else if (event === 'payment.failed') {
+      const paymentEntity = payload.payment?.entity || {};
+      const orderId = paymentEntity.order_id;
+      if (orderId) {
+        const payment = await Payment.findOne({ razorpayOrderId: orderId });
+        if (payment) {
+          payment.paymentStatus = 'FAILED';
+          await payment.save();
+          await Booking.findByIdAndUpdate(payment.booking, { bookingStatus: 'PAYMENT_FAILED' });
+        }
+      }
+    }
+
+    return res.status(200).json({ status: 'ok', received: true });
+  } catch (err) {
+    console.error('Webhook processing error:', err.message);
+    res.status(500).json({ message: 'Webhook processing error', error: err.message });
+  }
+};
+
+module.exports = {
+  createOrder,
+  verifyPayment,
+  getPaymentStatus,
+  getPaymentByBooking,
+  handleRazorpayWebhook,
+};

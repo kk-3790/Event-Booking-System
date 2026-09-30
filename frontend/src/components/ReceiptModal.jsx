@@ -14,8 +14,10 @@ import {
   Check,
   CreditCard
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import * as paymentService from '../services/paymentService';
 import Button from './ui/Button';
+import { downloadTicketPdf } from '../utils/ticketPdfGenerator';
 
 export default function ReceiptModal({ isOpen, onClose, booking }) {
   if (!isOpen || !booking) return null;
@@ -25,6 +27,15 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
   const [receiptData, setReceiptData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copiedTxn, setCopiedTxn] = useState(false);
+  const [receiptQr, setReceiptQr] = useState(booking.qrCode || '');
+
+  useEffect(() => {
+    if (!receiptQr && booking._id) {
+      QRCode.toDataURL(booking._id.toString(), { errorCorrectionLevel: 'H', margin: 1, width: 280 })
+        .then(setReceiptQr)
+        .catch(() => {});
+    }
+  }, [booking._id, receiptQr]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,11 +131,26 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() =>
+                downloadTicketPdf({
+                  booking,
+                  event,
+                  user: booking.user,
+                  qrCodeDataUrl: receiptQr || booking.qrCode,
+                })
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition cursor-pointer"
+              title="Download official PDF ticket pass with QR code"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Download Ticket</span>
+            </button>
+            <button
               onClick={handlePrint}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print / PDF</span>
+              <span>Print Invoice</span>
             </button>
             <button
               onClick={onClose}
@@ -188,21 +214,29 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
             </div>
 
             <div className="md:col-span-4 flex flex-col items-center justify-center p-3 rounded-xl bg-white text-slate-900 space-y-1">
-              <div className="w-20 h-20 bg-slate-900 rounded-lg p-1.5 flex flex-col justify-between">
-                <div className="flex justify-between">
-                  <div className="w-4 h-4 bg-white rounded-sm"></div>
-                  <div className="w-4 h-4 bg-white rounded-sm"></div>
+              {receiptQr ? (
+                <img
+                  src={receiptQr}
+                  alt="Gate Entry QR Code"
+                  className="w-20 h-20 object-contain rounded"
+                />
+              ) : (
+                <div className="w-20 h-20 bg-slate-900 rounded-lg p-1.5 flex flex-col justify-between">
+                  <div className="flex justify-between">
+                    <div className="w-4 h-4 bg-white rounded-sm"></div>
+                    <div className="w-4 h-4 bg-white rounded-sm"></div>
+                  </div>
+                  <div className="flex justify-center items-center">
+                    <QrCode className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div className="flex justify-between">
+                    <div className="w-4 h-4 bg-white rounded-sm"></div>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  </div>
                 </div>
-                <div className="flex justify-center items-center">
-                  <QrCode className="w-5 h-5 text-indigo-400" />
-                </div>
-                <div className="flex justify-between">
-                  <div className="w-4 h-4 bg-white rounded-sm"></div>
-                  <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                </div>
-              </div>
+              )}
               <span className="text-[9px] font-mono font-bold tracking-wider text-slate-700">
-                GATE ENTRY CODE
+                #BKG-{(booking._id || '').slice(-6).toUpperCase()}
               </span>
             </div>
 

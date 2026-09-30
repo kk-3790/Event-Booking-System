@@ -78,6 +78,20 @@ const generateEmailHtml = ({ title, message, user, booking }) => {
                 </tr>
               </table>
             </div>
+
+            ${booking.qrCode ? `
+              <div style="text-align: center; margin: 20px 0;">
+                <div style="display: inline-block; background-color: #ffffff; padding: 16px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);">
+                  <img src="${booking.qrCode}" alt="Entry Gate QR Code" width="160" height="160" style="display: block; margin: 0 auto;" />
+                  <p style="margin: 8px 0 0 0; color: #0f172a; font-family: monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px;">
+                    #BKG-${(booking._id || '').toString().slice(-6).toUpperCase()}
+                  </p>
+                </div>
+                <p style="color: #94a3b8; font-size: 12px; margin: 10px 0 0 0;">
+                  Scan this pass at the gate for instant entry.
+                </p>
+              </div>
+            ` : ''}
           ` : ''}
 
           <div style="text-align: center; margin-top: 28px;">

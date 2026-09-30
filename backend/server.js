@@ -15,7 +15,16 @@ const startEventCompletionJob = require('./jobs/eventCompletionJob');
 const startBookingExpiryJob = require('./jobs/bookingExpiryJob');
 const startEventReminderJob = require('./jobs/eventReminderJob');
 
+const path = require('path');
+const fs = require('fs');
+
 const app = express();
+
+// Ensure uploads/banners directory exists
+const uploadDir = path.join(__dirname, 'uploads', 'banners');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Connect to MongoDB Atlas
 connectDB();
@@ -27,7 +36,12 @@ startEventReminderJob();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);

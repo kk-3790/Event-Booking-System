@@ -20,14 +20,29 @@ import {
   X,
   RotateCcw,
   Gift,
-  Sparkles
+  Sparkles,
+  QrCode,
+  Image,
+  UploadCloud,
+  Layers,
+  Trash
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import AttendeesModal from '../components/AttendeesModal';
 import RewardDrawModal from '../components/RewardDrawModal';
+import CheckInScannerModal from '../components/CheckInScannerModal';
 
 const CATEGORIES = ['Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
+
+const PRESET_BANNERS = [
+  { label: 'Tech Summit', url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80' },
+  { label: 'Live Concert', url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&q=80' },
+  { label: 'Business Expo', url: 'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=1200&q=80' },
+  { label: 'Art Gala', url: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&q=80' },
+  { label: 'Culinary Workshop', url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=80' },
+  { label: 'Esports Arena', url: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&q=80' },
+];
 
 export default function OrganizerDashboard() {
   const { user } = useAuth();
@@ -45,8 +60,11 @@ export default function OrganizerDashboard() {
   const [activeEvent, setActiveEvent] = useState(null);
   const [attendeesEvent, setAttendeesEvent] = useState(null);
   const [rewardDrawEvent, setRewardDrawEvent] = useState(null);
+  const [scannerEvent, setScannerEvent] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerUploadError, setBannerUploadError] = useState('');
 
   // Event Form State
   const initialForm = {
@@ -58,6 +76,13 @@ export default function OrganizerDashboard() {
     endTime: '18:00',
     ticketPrice: '',
     availableSeats: '',
+    bannerImage: '',
+    description: '',
+    enableTiers: false,
+    ticketTiers: [
+      { tierName: 'General Admission', price: 499, totalSeats: 100, perks: 'Standard Entry' },
+      { tierName: 'VIP Pass', price: 999, totalSeats: 25, perks: 'Front Row + Fast-track' },
+    ],
   };
   const [formData, setFormData] = useState(initialForm);
 
@@ -92,6 +117,7 @@ export default function OrganizerDashboard() {
   // Open Edit Modal
   const openEditModal = (event) => {
     setActiveEvent(event);
+    const hasTiers = Boolean(event.ticketTiers && event.ticketTiers.length > 0);
     setFormData({
       eventName: event.eventName || '',
       category: event.category || 'Technology',
@@ -101,8 +127,16 @@ export default function OrganizerDashboard() {
       endTime: event.endTime || '18:00',
       ticketPrice: event.ticketPrice ?? '',
       availableSeats: event.availableSeats ?? '',
+      bannerImage: event.bannerImage || '',
+      description: event.description || '',
+      enableTiers: hasTiers,
+      ticketTiers: hasTiers ? event.ticketTiers : [
+        { tierName: 'General Admission', price: event.ticketPrice || 499, totalSeats: event.availableSeats || 100, perks: 'Standard Entry' },
+        { tierName: 'VIP Pass', price: (event.ticketPrice ? event.ticketPrice * 2 : 999), totalSeats: 25, perks: 'Front Row + Fast-track' },
+      ],
     });
     setModalError('');
+    setBannerUploadError('');
     setModalMode('edit');
   };
 
@@ -117,6 +151,53 @@ export default function OrganizerDashboard() {
     setModalMode(null);
     setActiveEvent(null);
     setModalError('');
+    setBannerUploadError('');
+  };
+
+  const handleBannerFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    setBannerUploadError('');
+    try {
+      const data = new FormData();
+      data.append('banner', file);
+      const res = await eventService.uploadBanner(data);
+      setFormData((prev) => ({ ...prev, bannerImage: res.data.imageUrl }));
+    } catch (err) {
+      setBannerUploadError(err.response?.data?.message || 'Banner upload failed');
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
+
+  const handleAddTier = () => {
+    setFormData((prev) => ({
+      ...prev,
+      ticketTiers: [
+        ...prev.ticketTiers,
+        { tierName: 'New Pass Tier', price: 499, totalSeats: 50, perks: 'Admission Pass' },
+      ],
+    }));
+  };
+
+  const handleRemoveTier = (index) => {
+    if (formData.ticketTiers.length <= 1) {
+      setModalError('At least one ticket tier is required when multi-tier pricing is enabled.');
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      ticketTiers: prev.ticketTiers.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleUpdateTier = (index, field, value) => {
+    setFormData((prev) => {
+      const updated = [...prev.ticketTiers];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, ticketTiers: updated };
+    });
   };
 
   // Submit Create or Edit Form
@@ -141,23 +222,57 @@ export default function OrganizerDashboard() {
       setModalError('End Time must be later than Start Time.');
       return;
     }
-    if (Number(formData.ticketPrice) < 0) {
-      setModalError('Ticket Price cannot be negative.');
-      return;
-    }
-    if (Number(formData.availableSeats) < 1) {
-      setModalError('Available Seats must be at least 1.');
-      return;
+
+    let payload = {
+      ...formData,
+      ticketPrice: Number(formData.ticketPrice) || 0,
+      availableSeats: Number(formData.availableSeats) || 0,
+    };
+
+    if (formData.enableTiers) {
+      if (!formData.ticketTiers || formData.ticketTiers.length === 0) {
+        setModalError('Please configure at least one ticket tier.');
+        return;
+      }
+      for (const t of formData.ticketTiers) {
+        if (!t.tierName?.trim()) {
+          setModalError('All ticket tiers must have a name (e.g. VIP Pass, General Admission).');
+          return;
+        }
+        if (Number(t.price) < 0 || Number(t.totalSeats) < 1) {
+          setModalError('Tier price cannot be negative and capacity must be at least 1 seat.');
+          return;
+        }
+      }
+      const formattedTiers = formData.ticketTiers.map((t) => ({
+        tierName: t.tierName.trim(),
+        price: Number(t.price),
+        totalSeats: Number(t.totalSeats),
+        availableSeats: Number(t.availableSeats !== undefined ? t.availableSeats : t.totalSeats),
+        perks: t.perks || '',
+      }));
+      const totalTierSeats = formattedTiers.reduce((sum, t) => sum + t.totalSeats, 0);
+      const totalTierAvailable = formattedTiers.reduce((sum, t) => sum + t.availableSeats, 0);
+      const minPrice = Math.min(...formattedTiers.map((t) => t.price));
+
+      payload.ticketTiers = formattedTiers;
+      payload.totalSeats = totalTierSeats;
+      payload.availableSeats = totalTierAvailable;
+      payload.ticketPrice = minPrice;
+    } else {
+      if (Number(formData.ticketPrice) < 0) {
+        setModalError('Ticket Price cannot be negative.');
+        return;
+      }
+      if (Number(formData.availableSeats) < 1) {
+        setModalError('Available Seats must be at least 1.');
+        return;
+      }
+      payload.ticketTiers = [];
     }
 
     setModalLoading(true);
     try {
-      const payload = {
-        ...formData,
-        ticketPrice: Number(formData.ticketPrice),
-        availableSeats: Number(formData.availableSeats),
-      };
-
       if (modalMode === 'create') {
         const { data } = await eventService.createEvent(payload);
         setToastMessage(`Event "${data.event?.eventName || formData.eventName}" published successfully!`);
@@ -450,6 +565,13 @@ export default function OrganizerDashboard() {
                     </td>
                     <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
                       <button
+                        onClick={() => setScannerEvent(event)}
+                        className="inline-flex p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition cursor-pointer"
+                        title="Gate Admission & QR Scanner"
+                      >
+                        <QrCode className="w-3.5 h-3.5" />
+                      </button>
+                      <button
                         onClick={() => setRewardDrawEvent(event)}
                         className="inline-flex p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition cursor-pointer"
                         title="Configure Lucky Draw & Promotional Discount"
@@ -585,26 +707,225 @@ export default function OrganizerDashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Ticket Price (₹)"
-                  type="number"
-                  min="0"
-                  placeholder="499"
-                  value={formData.ticketPrice}
-                  onChange={(e) => setFormData({ ...formData, ticketPrice: e.target.value })}
-                  required
+              {/* Event Description */}
+              <div className="space-y-1.5 text-left">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Event Description & Highlights
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Share a compelling overview of the event, keynote speakers, agenda, or dress code..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="block w-full rounded-xl bg-slate-950/80 border border-slate-800 p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 resize-none transition"
                 />
+              </div>
 
-                <Input
-                  label="Available Seats (Inventory)"
-                  type="number"
-                  min="1"
-                  placeholder="150"
-                  value={formData.availableSeats}
-                  onChange={(e) => setFormData({ ...formData, availableSeats: e.target.value })}
-                  required
-                />
+              {/* Event Banner */}
+              <div className="space-y-2.5 text-left">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <Image className="w-3.5 h-3.5 text-indigo-400" />
+                    Event Banner Image
+                  </label>
+                  <span className="text-[11px] text-slate-500">JPG, PNG, WebP up to 5MB</span>
+                </div>
+
+                {formData.bannerImage && (
+                  <div className="relative h-28 w-full rounded-xl overflow-hidden border border-slate-700/80 group">
+                    <img
+                      src={formData.bannerImage.startsWith('http') ? formData.bannerImage : `http://localhost:5001${formData.bannerImage}`}
+                      alt="Banner Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, bannerImage: '' })}
+                        className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-xs font-semibold hover:bg-rose-500/30 transition cursor-pointer"
+                      >
+                        Remove Image
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <label className="relative flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500/50 bg-slate-950/50 hover:bg-slate-950 cursor-pointer transition text-xs text-slate-300">
+                    <UploadCloud className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>{uploadingBanner ? 'Uploading...' : 'Upload from Device'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBannerFileChange}
+                      disabled={uploadingBanner}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <Input
+                    type="url"
+                    placeholder="Or paste external image URL..."
+                    value={formData.bannerImage}
+                    onChange={(e) => setFormData({ ...formData, bannerImage: e.target.value })}
+                  />
+                </div>
+
+                {bannerUploadError && (
+                  <p className="text-xs text-rose-400">{bannerUploadError}</p>
+                )}
+
+                {/* Preset Banner Quick Select */}
+                <div>
+                  <span className="text-[11px] text-slate-400 block mb-1.5 font-medium">Quick Presets:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PRESET_BANNERS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, bannerImage: preset.url })}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
+                          formData.bannerImage === preset.url
+                            ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200'
+                            : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Ticketing Structure: Single Price vs Multi-Tier Passes */}
+              <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-indigo-400" />
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Multi-Tier Passes</h4>
+                      <p className="text-[11px] text-slate-400">Offer VIP, Early Bird & General Admission tiers</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.enableTiers}
+                      onChange={(e) => setFormData({ ...formData, enableTiers: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+
+                {!formData.enableTiers ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <Input
+                      label="Ticket Price (₹)"
+                      type="number"
+                      min="0"
+                      placeholder="499"
+                      value={formData.ticketPrice}
+                      onChange={(e) => setFormData({ ...formData, ticketPrice: e.target.value })}
+                      required={!formData.enableTiers}
+                    />
+
+                    <Input
+                      label="Available Seats (Inventory)"
+                      type="number"
+                      min="1"
+                      placeholder="150"
+                      value={formData.availableSeats}
+                      onChange={(e) => setFormData({ ...formData, availableSeats: e.target.value })}
+                      required={!formData.enableTiers}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-1">
+                    {formData.ticketTiers.map((tier, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-indigo-300">Tier #{idx + 1}</span>
+                          {formData.ticketTiers.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTier(idx)}
+                              className="text-slate-400 hover:text-rose-400 p-1 rounded-md transition cursor-pointer"
+                              title="Delete tier"
+                            >
+                              <Trash className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] text-slate-400 uppercase font-semibold">Tier Name</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. VIP Access"
+                              value={tier.tierName}
+                              onChange={(e) => handleUpdateTier(idx, 'tierName', e.target.value)}
+                              className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-slate-400 uppercase font-semibold">Price (₹)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="999"
+                              value={tier.price}
+                              onChange={(e) => handleUpdateTier(idx, 'price', e.target.value)}
+                              className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-slate-400 uppercase font-semibold">Capacity (Seats)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="50"
+                              value={tier.totalSeats}
+                              onChange={(e) => handleUpdateTier(idx, 'totalSeats', e.target.value)}
+                              className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-slate-400 uppercase font-semibold">Perks & Benefits</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Front row seat + Swag kit + Backstage pass"
+                            value={tier.perks || ''}
+                            onChange={(e) => handleUpdateTier(idx, 'perks', e.target.value)}
+                            className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={handleAddTier}
+                      className="w-full py-2 rounded-xl border border-dashed border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/10 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Another Pass Tier
+                    </button>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+                      <span>Total Capacity: <strong className="text-white">{formData.ticketTiers.reduce((acc, t) => acc + (Number(t.totalSeats) || 0), 0)} seats</strong></span>
+                      <span>Starting at: <strong className="text-emerald-400">₹{Math.min(...formData.ticketTiers.map(t => Number(t.price) || 0))}</strong></span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
@@ -674,6 +995,16 @@ export default function OrganizerDashboard() {
           isOpen={!!rewardDrawEvent}
           onClose={() => setRewardDrawEvent(null)}
           event={rewardDrawEvent}
+        />
+      )}
+
+      {/* Gate Admission & QR Scanner Modal */}
+      {scannerEvent && (
+        <CheckInScannerModal
+          isOpen={!!scannerEvent}
+          onClose={() => setScannerEvent(null)}
+          event={scannerEvent}
+          onCheckInComplete={fetchOrganizerEvents}
         />
       )}
 

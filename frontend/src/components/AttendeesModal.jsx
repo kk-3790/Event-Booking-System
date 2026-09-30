@@ -30,6 +30,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
   // Search and status filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [checkingInId, setCheckingInId] = useState(null);
 
   const fetchAttendees = async () => {
     setLoading(true);
@@ -42,6 +43,18 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
       setError(err.response?.data?.message || 'Failed to load attendees list for this event.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleManualCheckIn = async (bookingId) => {
+    setCheckingInId(bookingId);
+    try {
+      await bookingService.checkInAttendee({ bookingId, eventId: event._id });
+      fetchAttendees();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Check-in failed');
+    } finally {
+      setCheckingInId(null);
     }
   };
 
@@ -75,8 +88,11 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
       'Attendee Name',
       'Email Address',
       'Mobile Number',
+      'Pass Tier',
       'Pass Quantity',
       'Booking Status',
+      'Gate Check-in',
+      'Check-in Time',
       'Unit Price (INR)',
       'Total Amount (INR)',
       'Booking Time',
@@ -85,18 +101,22 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
 
     const rows = filteredAttendees.map((b) => {
       const u = b.user || {};
-      const unitPrice = event.ticketPrice || 0;
-      const total = unitPrice * (b.ticketCount || 1);
+      const unitPrice = b.unitPrice || event.ticketPrice || 0;
+      const total = b.totalAmount || (unitPrice * (b.ticketCount || 1));
       const bookedTime = b.bookingTime || (b.createdAt ? new Date(b.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '');
       const bookedAt = b.createdAt ? new Date(b.createdAt).toISOString() : '';
+      const checkedInTime = b.checkedInAt ? new Date(b.checkedInAt).toLocaleString('en-US') : '';
 
       return [
         `#BKG-${b._id.slice(-6).toUpperCase()}`,
         `"${(u.name || 'Anonymous').replace(/"/g, '""')}"`,
         `"${(u.email || '').replace(/"/g, '""')}"`,
         `"${(u.mobile || '').replace(/"/g, '""')}"`,
+        `"${b.tierName || 'General Admission'}"`,
         b.ticketCount || 1,
         b.bookingStatus,
+        b.checkedIn ? 'CHECKED_IN' : 'PENDING',
+        `"${checkedInTime}"`,
         unitPrice,
         total,
         `"${bookedTime}"`,
@@ -261,6 +281,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
                   <th className="py-3 px-4 text-center">Tickets</th>
                   <th className="py-3 px-4 text-right">Amount</th>
                   <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-center">Gate Check-in</th>
                   <th className="py-3 px-4 text-right">Booking Time & Date</th>
                 </tr>
               </thead>
@@ -268,7 +289,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
                 
                 {loading && (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center text-slate-500">
+                    <td colSpan="7" className="py-12 text-center text-slate-500">
                       Loading attendee manifest...
                     </td>
                   </tr>
@@ -276,7 +297,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
 
                 {error && (
                   <tr>
-                    <td colSpan="6" className="py-8 px-4 text-center text-rose-400">
+                    <td colSpan="7" className="py-8 px-4 text-center text-rose-400">
                       {error}
                     </td>
                   </tr>
@@ -284,7 +305,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
 
                 {!loading && !error && filteredAttendees.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center text-slate-500 space-y-2">
+                    <td colSpan="7" className="py-12 text-center text-slate-500 space-y-2">
                       <FileSpreadsheet className="w-8 h-8 text-slate-600 mx-auto" />
                       <p>No attendees found matching your criteria.</p>
                     </td>
@@ -295,7 +316,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
                   const u = b.user || {};
                   const isConfirmed = b.bookingStatus === 'CONFIRMED';
                   const isPending = b.bookingStatus === 'PENDING';
-                  const total = (event.ticketPrice || 0) * (b.ticketCount || 1);
+                  const total = b.totalAmount || ((b.unitPrice || event.ticketPrice || 0) * (b.ticketCount || 1));
                   const bookedDate = b.createdAt
                     ? new Date(b.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
@@ -333,7 +354,12 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-center font-bold text-white">
-                        {b.ticketCount || 1}
+                        <div>{b.ticketCount || 1}</div>
+                        {b.tierName && (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                            {b.tierName}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-indigo-400">
                         ₹{total.toLocaleString('en-IN')}
@@ -356,6 +382,32 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
                             <XCircle className="w-3 h-3 text-rose-400" />
                             {b.bookingStatus}
                           </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        {b.checkedIn ? (
+                          <div>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              Admitted
+                            </span>
+                            {b.checkedInAt && (
+                              <span className="block text-[9px] text-slate-500 font-mono mt-0.5">
+                                {new Date(b.checkedInAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </span>
+                            )}
+                          </div>
+                        ) : isConfirmed ? (
+                          <button
+                            type="button"
+                            disabled={checkingInId === b._id}
+                            onClick={() => handleManualCheckIn(b._id)}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold transition cursor-pointer disabled:opacity-50"
+                          >
+                            {checkingInId === b._id ? 'Admitting...' : 'Check In'}
+                          </button>
+                        ) : (
+                          <span className="text-slate-600 text-[10px]">—</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right">

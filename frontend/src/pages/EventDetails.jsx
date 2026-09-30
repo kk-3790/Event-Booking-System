@@ -20,11 +20,16 @@ import {
   Gift,
   Tag,
   Percent,
-  Check
+  Check,
+  Layers,
+  QrCode,
+  Download
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import Button from '../components/ui/Button';
 import PaymentModal from '../components/PaymentModal';
 import * as rewardService from '../services/rewardService';
+import { downloadTicketPdf } from '../utils/ticketPdfGenerator';
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -36,6 +41,7 @@ export default function EventDetails() {
   const [error, setError] = useState('');
   
   // Checkout state
+  const [selectedTier, setSelectedTier] = useState(null);
   const [ticketCount, setTicketCount] = useState(1);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(null);
@@ -44,6 +50,7 @@ export default function EventDetails() {
   // Payment modal state
   const [activeBooking, setActiveBooking] = useState(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [successQr, setSuccessQr] = useState('');
 
   // Promo code & Lucky Draw state
   const [promoCode, setPromoCode] = useState('');
@@ -53,12 +60,29 @@ export default function EventDetails() {
   const [eventDraw, setEventDraw] = useState(null);
 
   useEffect(() => {
+    if (bookingSuccess) {
+      const existing = bookingSuccess.qrCode || activeBooking?.qrCode;
+      if (existing) {
+        setSuccessQr(existing);
+      } else if (bookingSuccess._id) {
+        QRCode.toDataURL(bookingSuccess._id.toString(), { errorCorrectionLevel: 'H', margin: 1, width: 320 })
+          .then(setSuccessQr)
+          .catch(() => {});
+      }
+    }
+  }, [bookingSuccess, activeBooking]);
+
+  useEffect(() => {
     const fetchEvent = async () => {
       setLoading(true);
       setError('');
       try {
         const { data } = await eventService.getEventById(id);
         setEvent(data);
+        if (data.ticketTiers && data.ticketTiers.length > 0) {
+          const firstAvailable = data.ticketTiers.find((t) => t.availableSeats > 0) || data.ticketTiers[0];
+          setSelectedTier(firstAvailable);
+        }
       } catch {
         setError('Failed to load event details. Please verify the link or try again.');
       } finally {
@@ -101,8 +125,10 @@ export default function EventDetails() {
   };
 
 
+  const maxAvailable = selectedTier ? selectedTier.availableSeats : (event?.availableSeats || 1);
+
   const handleQuantityChange = (delta) => {
-    const maxAllowed = Math.min(10, event?.availableSeats || 1);
+    const maxAllowed = Math.min(10, maxAvailable);
     setTicketCount((prev) => Math.max(1, Math.min(maxAllowed, prev + delta)));
   };
 
@@ -127,6 +153,7 @@ export default function EventDetails() {
         ticketCount,
         isPromotional: Boolean(appliedPromo?.isPromotional),
         promoCode: appliedPromo?.code,
+        tierName: selectedTier?.tierName,
       });
 
       const booking = { ...bookingRes.booking, event };
@@ -142,15 +169,6 @@ export default function EventDetails() {
   const handlePaymentSuccess = () => {
     setIsPaymentOpen(false);
     setBookingSuccess({ ...activeBooking, bookingStatus: 'CONFIRMED' });
-    
-    // Automatically redirect to My Bookings after 1.5s so attendee sees their ticket pass
-    setTimeout(() => {
-      navigate('/my-bookings', { 
-        state: { 
-          paymentToast: `🎉 Payment confirmed! Passes for "${event.eventName}" are issued to your wallet.` 
-        } 
-      });
-    }, 1500);
   };
 
   if (loading) {
@@ -180,8 +198,13 @@ export default function EventDetails() {
     );
   }
 
-  const effectiveTicketPrice = appliedPromo ? appliedPromo.discountedPrice : event.ticketPrice;
-  const originalSubtotal = event.ticketPrice * ticketCount;
+  const baseTicketPrice = selectedTier ? selectedTier.price : (event.ticketPrice || 0);
+  const maxAvailableSeats = selectedTier ? selectedTier.availableSeats : (event.availableSeats || 0);
+  const discountPercent = appliedPromo?.discountPercentage || 0;
+  const effectiveTicketPrice = appliedPromo 
+    ? Math.round(baseTicketPrice * (1 - discountPercent / 100))
+    : baseTicketPrice;
+  const originalSubtotal = baseTicketPrice * ticketCount;
   const discountedSubtotal = effectiveTicketPrice * ticketCount;
   const discountSavings = originalSubtotal - discountedSubtotal;
   const platformFee = Math.round(discountedSubtotal * 0.05);
@@ -214,6 +237,18 @@ export default function EventDetails() {
         {/* Left Col: Event Showcase */}
         <div className="lg:col-span-8 space-y-6">
           
+          {/* Hero Banner Image */}
+          {event.bannerImage && (
+            <div className="relative rounded-3xl overflow-hidden border border-slate-800 shadow-2xl h-64 md:h-80 w-full group">
+              <img
+                src={event.bannerImage.startsWith('http') ? event.bannerImage : `http://localhost:5001${event.bannerImage}`}
+                alt={event.eventName}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none" />
+            </div>
+          )}
+
           {/* Header Banner */}
           <div className="rounded-3xl p-6 md:p-8 bg-gradient-to-br from-indigo-950/60 via-slate-900 to-slate-950 border border-slate-800 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -249,6 +284,19 @@ export default function EventDetails() {
           {/* Details Tabs & Overview */}
           <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-6 md:p-8 space-y-6 glass-card">
             
+            {/* Description & Overview */}
+            {event.description && (
+              <div className="space-y-3 pb-6 border-b border-slate-800/80">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-indigo-400" />
+                  <span>About This Event</span>
+                </h3>
+                <p className="text-sm text-slate-300 leading-relaxed pl-7 whitespace-pre-line">
+                  {event.description}
+                </p>
+              </div>
+            )}
+
             {/* Venue & Location */}
             <div className="space-y-3 pb-6 border-b border-slate-800/80">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -298,16 +346,84 @@ export default function EventDetails() {
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Admission Pass
+                  {selectedTier ? selectedTier.tierName : 'Admission Pass'}
                 </span>
                 <span className="text-2xl font-black text-white mt-0.5 block">
-                  ₹{event.ticketPrice.toLocaleString('en-IN')}
+                  ₹{baseTicketPrice.toLocaleString('en-IN')}
                 </span>
               </div>
               <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
-                {event.availableSeats} seats left
+                {maxAvailableSeats} seats left
               </span>
             </div>
+
+            {/* Pass Tier Selector if event has tiers */}
+            {event.ticketTiers && event.ticketTiers.length > 0 && (
+              <div className="space-y-2.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Choose Pass Tier</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold">{event.ticketTiers.length} Options</span>
+                </label>
+                <div className="space-y-2">
+                  {event.ticketTiers.map((tier) => {
+                    const isSelected = selectedTier?.tierName === tier.tierName;
+                    const isSoldOut = tier.availableSeats <= 0;
+                    return (
+                      <div
+                        key={tier.tierName}
+                        onClick={() => {
+                          if (!isSoldOut) {
+                            setSelectedTier(tier);
+                            if (ticketCount > tier.availableSeats) {
+                              setTicketCount(Math.max(1, tier.availableSeats));
+                            }
+                          }
+                        }}
+                        className={`p-3 rounded-xl border transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600/15 border-indigo-500 ring-1 ring-indigo-500/50'
+                            : isSoldOut
+                            ? 'bg-slate-950/40 border-slate-800/50 opacity-40 cursor-not-allowed'
+                            : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-indigo-400 bg-indigo-500' : 'border-slate-600'
+                            }`}>
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <span className="text-xs font-bold text-white">{tier.tierName}</span>
+                          </div>
+                          <span className="text-sm font-extrabold text-white">
+                            ₹{tier.price.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+
+                        {tier.perks && (
+                          <p className="text-[11px] text-indigo-300/80 pl-5.5 mt-1 font-medium">
+                            ✨ {tier.perks}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between pl-5.5 mt-1 text-[10px]">
+                          <span className={isSoldOut ? 'text-rose-400 font-semibold' : 'text-slate-400'}>
+                            {isSoldOut ? 'Sold Out' : `${tier.availableSeats} passes left`}
+                          </span>
+                          {tier.totalSeats && !isSoldOut && (
+                            <span className="text-slate-500">Cap: {tier.totalSeats}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Quantity Selector */}
             <div className="space-y-2">
@@ -503,11 +619,41 @@ export default function EventDetails() {
                 Your passes for <span className="text-white font-semibold">{event.eventName}</span> have been issued and saved to your wallet.
               </p>
             </div>
+            {/* Scannable Pass QR Code */}
+            {successQr ? (
+              <div className="p-4 bg-white rounded-2xl shadow-xl max-w-[210px] mx-auto text-center space-y-1.5">
+                <img
+                  src={successQr}
+                  alt="Pass Entry QR Code"
+                  className="w-40 h-40 mx-auto object-contain"
+                />
+                <span className="block text-[11px] font-mono font-bold text-slate-800 tracking-wider">
+                  #BKG-{(bookingSuccess._id || activeBooking?._id || '').slice(-6).toUpperCase()}
+                </span>
+                <span className="block text-[9px] uppercase tracking-wider text-indigo-600 font-bold">
+                  FAST-TRACK GATE ENTRY
+                </span>
+              </div>
+            ) : (
+              <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl max-w-[180px] mx-auto text-center text-slate-400 text-xs">
+                <QrCode className="w-8 h-8 text-indigo-400 mx-auto mb-1 animate-pulse" />
+                Generating QR Pass...
+              </div>
+            )}
+
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-slate-400">Total Passes:</span>
                 <span className="font-bold text-white">{ticketCount} Tickets</span>
               </div>
+              {(bookingSuccess?.tierName || selectedTier?.tierName) && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Pass Tier:</span>
+                  <span className="font-bold text-indigo-300">
+                    {bookingSuccess?.tierName || selectedTier?.tierName}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-400">Total Paid:</span>
                 <span className="font-bold text-indigo-400">₹{totalAmount.toLocaleString('en-IN')}</span>
@@ -523,8 +669,24 @@ export default function EventDetails() {
               <Button
                 variant="gradient"
                 size="md"
+                onClick={() =>
+                  downloadTicketPdf({
+                    booking: bookingSuccess,
+                    event,
+                    user,
+                    qrCodeDataUrl: successQr || bookingSuccess?.qrCode,
+                  })
+                }
+                className="w-full flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-600/25"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Ticket Pass (PDF)</span>
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => navigate('/my-bookings')}
-                className="w-full"
+                className="w-full flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>View in My Bookings</span>
                 <ArrowRight className="w-4 h-4 ml-1.5" />
@@ -533,7 +695,7 @@ export default function EventDetails() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setBookingSuccess(null)}
-                className="w-full text-slate-400"
+                className="w-full text-slate-400 cursor-pointer"
               >
                 Close
               </Button>

@@ -24,6 +24,14 @@ const bookingSchema = new mongoose.Schema(
     subtotal: { type: Number },
     platformFee: { type: Number, default: 0 },
     totalAmount: { type: Number },
+    // Multi-tier pass name
+    tierName: { type: String, default: 'General Admission' },
+    // Gate admission & check-in verification
+    checkedIn: { type: Boolean, default: false },
+    checkedInAt: { type: Date },
+    checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    // Generated scannable QR code data URL (encoded at booking time)
+    qrCode: { type: String },
   },
   { timestamps: true }
 );

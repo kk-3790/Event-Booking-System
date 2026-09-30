@@ -413,26 +413,44 @@ export default function EventList() {
                   className="group rounded-3xl bg-slate-900/70 border border-slate-800 hover:border-indigo-500/40 transition-all duration-300 hover:-translate-y-1 shadow-xl hover:shadow-2xl overflow-hidden flex flex-col justify-between glass-card"
                 >
                   <div>
-                    {/* Header Thumbnail Gradient */}
+                    {/* Header Thumbnail Gradient & Banner Image */}
                     <div className={`relative h-48 bg-gradient-to-br ${theme.gradient} overflow-hidden p-5 flex flex-col justify-between`}>
-                      <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px] opacity-10 pointer-events-none"></div>
+                      {event.bannerImage ? (
+                        <>
+                          <img
+                            src={event.bannerImage.startsWith('http') ? event.bannerImage : `http://localhost:5001${event.bannerImage}`}
+                            alt={event.eventName}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-black/30 pointer-events-none" />
+                        </>
+                      ) : (
+                        <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:20px_20px] opacity-10 pointer-events-none"></div>
+                      )}
 
                       <div className="relative z-10 flex items-center justify-between">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-md border ${theme.badge}`}>
                           {event.category}
                         </span>
 
-                        {isUrgent ? (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1 backdrop-blur-md">
-                            <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                            <span>Fast Selling</span>
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1 backdrop-blur-md">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Active</span>
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {event.ticketTiers && event.ticketTiers.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 backdrop-blur-md">
+                              {event.ticketTiers.length} Tiers
+                            </span>
+                          )}
+                          {isUrgent ? (
+                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1 backdrop-blur-md">
+                              <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                              <span>Fast Selling</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1 backdrop-blur-md">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Active</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="relative z-10 space-y-1">
@@ -490,10 +508,13 @@ export default function EventList() {
                     <div className="flex items-center justify-between pt-3.5 border-t border-slate-800/80">
                       <div>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">
-                          Tickets From
+                          {event.ticketTiers && event.ticketTiers.length > 1 ? 'Passes From' : 'Tickets From'}
                         </span>
                         <span className="text-xl font-black text-white">
-                          ₹{event.ticketPrice.toLocaleString('en-IN')}
+                          ₹{(event.ticketTiers && event.ticketTiers.length > 0
+                            ? Math.min(...event.ticketTiers.map((t) => t.price))
+                            : (event.ticketPrice || 0)
+                          ).toLocaleString('en-IN')}
                         </span>
                       </div>
 

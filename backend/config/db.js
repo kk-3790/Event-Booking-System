@@ -10,7 +10,7 @@ const connectDB = async () => {
     console.log('✅ Connected to MongoDB Atlas successfully');
   } catch (err) {
     console.warn('⚠️  Could not connect to MongoDB Atlas cluster:', err.message);
-    console.warn('👉 Note: To allow connection to Atlas from this device, please add IP 43.249.234.163 or 0.0.0.0/0 in MongoDB Atlas > Network Access.');
+    console.warn('👉 Note: To allow connection to Atlas from this device, add IP 103.250.136.137 or 0.0.0.0/0 in MongoDB Atlas > Network Access. (Run "node scripts/testAtlas.js" to diagnose)');
     console.log('🔄 Engaging automatic fallback to local MongoDB instance...');
     try {
       await mongoose.connect(localFallbackUri);

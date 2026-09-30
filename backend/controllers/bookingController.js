@@ -1,7 +1,26 @@
 const mongoose = require('mongoose');
+const QRCode = require('qrcode');
 const Booking = require('../models/Booking');
 const Event = require('../models/Event');
 const { computeLiveStatus, getEventStart } = require('../utils/eventTiming');
+
+// Generates a high-contrast scannable QR Code Data URL for instant gate admission
+const generateBookingQrCode = async (bookingId) => {
+  try {
+    return await QRCode.toDataURL(bookingId.toString(), {
+      errorCorrectionLevel: 'H',
+      margin: 1,
+      width: 320,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+    });
+  } catch (err) {
+    console.error('QR code generation failed:', err.message);
+    return null;
+  }
+};
 
 // How long a PENDING booking holds its seats before it auto-expires and
 // releases them back to the event. 10 minutes matches common industry
@@ -18,9 +37,15 @@ const expireIfNeeded = async (booking) => {
   if (booking.bookingStatus === 'PENDING' && booking.expiresAt && booking.expiresAt < new Date()) {
     booking.bookingStatus = 'EXPIRED';
     await booking.save();
-    await Event.findByIdAndUpdate(booking.event, {
-      $inc: { availableSeats: booking.ticketCount },
-    });
+    const event = await Event.findById(booking.event);
+    if (event) {
+      event.availableSeats += booking.ticketCount;
+      if (booking.tierName && event.ticketTiers && event.ticketTiers.length > 0) {
+        const tier = event.ticketTiers.find((t) => t.tierName === booking.tierName);
+        if (tier) tier.availableSeats += booking.ticketCount;
+      }
+      await event.save();
+    }
   }
   return booking;
 };
@@ -30,7 +55,7 @@ const expireIfNeeded = async (booking) => {
 // POST /api/bookings  (Customer only)
 const bookTicket = async (req, res) => {
   try {
-    const { eventId, ticketCount, isPromotional, promoCode } = req.body;
+    const { eventId, ticketCount, isPromotional, promoCode, tierName } = req.body;
 
     if (!eventId || !ticketCount || ticketCount < 1) {
       return res.status(400).json({ message: 'eventId and a valid ticketCount are required' });
@@ -57,14 +82,39 @@ const bookTicket = async (req, res) => {
       return res.status(400).json({ message });
     }
 
-    const updatedEvent = await Event.findOneAndUpdate(
-      { _id: eventId, availableSeats: { $gte: ticketCount } },
-      { $inc: { availableSeats: -ticketCount } },
-      { new: true }
-    );
+    let selectedTier = null;
+    let baseTicketPrice = event.ticketPrice;
 
-    if (!updatedEvent) {
-      return res.status(409).json({ message: 'Not enough seats available for this booking' });
+    if (event.ticketTiers && event.ticketTiers.length > 0) {
+      if (tierName) {
+        selectedTier = event.ticketTiers.find(
+          (t) => t.tierName.toLowerCase() === tierName.trim().toLowerCase()
+        );
+      }
+      if (!selectedTier) {
+        selectedTier = event.ticketTiers[0];
+      }
+
+      if (selectedTier.availableSeats < ticketCount) {
+        return res.status(409).json({
+          message: `Not enough seats in tier "${selectedTier.tierName}". Available: ${selectedTier.availableSeats}`,
+        });
+      }
+
+      selectedTier.availableSeats -= ticketCount;
+      event.availableSeats -= ticketCount;
+      await event.save();
+      baseTicketPrice = selectedTier.price;
+    } else {
+      const updatedEvent = await Event.findOneAndUpdate(
+        { _id: eventId, availableSeats: { $gte: ticketCount } },
+        { $inc: { availableSeats: -ticketCount } },
+        { new: true }
+      );
+
+      if (!updatedEvent) {
+        return res.status(409).json({ message: 'Not enough seats available for this booking' });
+      }
     }
 
     const expiresAt = new Date(Date.now() + BOOKING_HOLD_MINUTES * 60 * 1000);
@@ -76,25 +126,25 @@ const bookTicket = async (req, res) => {
       'EVENTHUB10': 10,
     };
 
-    let unitPrice = event.ticketPrice;
+    let unitPrice = baseTicketPrice;
     const cleanPromo = (promoCode || '').trim().toUpperCase();
 
     if (cleanPromo && STATIC_PROMOS[cleanPromo]) {
       const discount = STATIC_PROMOS[cleanPromo];
-      unitPrice = Math.round(event.ticketPrice * (1 - discount / 100));
+      unitPrice = Math.round(baseTicketPrice * (1 - discount / 100));
     } else if (isPromotional || cleanPromo) {
       try {
         const RewardDraw = require('../models/RewardDraw');
         const draw = await RewardDraw.findOne({ event: eventId, drawStatus: 'OPEN' });
-        if (draw && draw.promoTicketPrice) {
+        if (draw && draw.promoTicketPrice && !selectedTier) {
           unitPrice = draw.promoTicketPrice;
         } else if (draw && draw.discountPercentage) {
-          unitPrice = Math.round(event.ticketPrice * (1 - draw.discountPercentage / 100));
+          unitPrice = Math.round(baseTicketPrice * (1 - draw.discountPercentage / 100));
         } else {
-          unitPrice = Math.round(event.ticketPrice * 0.8);
+          unitPrice = Math.round(baseTicketPrice * 0.8);
         }
       } catch (err) {
-        unitPrice = Math.round(event.ticketPrice * 0.8);
+        unitPrice = Math.round(baseTicketPrice * 0.8);
       }
     }
 
@@ -109,9 +159,14 @@ const bookTicket = async (req, res) => {
       hour12: true,
     });
 
+    const bookingId = new mongoose.Types.ObjectId();
+    const qrCode = await generateBookingQrCode(bookingId);
+
     const booking = await Booking.create({
+      _id: bookingId,
       user: req.user.id,
       event: eventId,
+      tierName: selectedTier ? selectedTier.tierName : (tierName || 'General Admission'),
       bookingDate: now,
       bookingTime,
       ticketCount,
@@ -123,6 +178,7 @@ const bookTicket = async (req, res) => {
       bookingStatus: 'PENDING', // becomes CONFIRMED once payment succeeds
       expiresAt,
       isPromotional: Boolean(isPromotional || cleanPromo),
+      qrCode,
     });
 
     if (isPromotional) {
@@ -168,9 +224,15 @@ const cancelBooking = async (req, res) => {
     await booking.save();
 
     // Release the seats back to the event
-    await Event.findByIdAndUpdate(booking.event, {
-      $inc: { availableSeats: booking.ticketCount },
-    });
+    const event = await Event.findById(booking.event);
+    if (event) {
+      event.availableSeats += booking.ticketCount;
+      if (booking.tierName && event.ticketTiers && event.ticketTiers.length > 0) {
+        const tier = event.ticketTiers.find((t) => t.tierName === booking.tierName);
+        if (tier) tier.availableSeats += booking.ticketCount;
+      }
+      await event.save();
+    }
 
     res.status(200).json({ message: 'Booking cancelled successfully', booking });
   } catch (err) {
@@ -186,7 +248,15 @@ const getMyBookings = async (req, res) => {
       .populate('event', 'eventName date time venue ticketPrice')
       .sort({ createdAt: -1 });
 
-    await Promise.all(bookings.map((booking) => expireIfNeeded(booking)));
+    await Promise.all(
+      bookings.map(async (booking) => {
+        await expireIfNeeded(booking);
+        if (!booking.qrCode) {
+          booking.qrCode = await generateBookingQrCode(booking._id);
+          await booking.save();
+        }
+      })
+    );
 
     res.status(200).json(bookings);
   } catch (err) {
@@ -206,6 +276,10 @@ const getBookingById = async (req, res) => {
       return res.status(403).json({ message: 'You are not allowed to view this booking' });
     }
     await expireIfNeeded(booking);
+    if (!booking.qrCode) {
+      booking.qrCode = await generateBookingQrCode(booking._id);
+      await booking.save();
+    }
     res.status(200).json(booking);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch booking', error: err.message });
@@ -232,6 +306,8 @@ const getEventAttendees = async (req, res) => {
     const confirmedBookings = bookings.filter((b) => b.bookingStatus === 'CONFIRMED');
     const totalConfirmedSeats = confirmedBookings.reduce((sum, b) => sum + (b.ticketCount || 0), 0);
     const totalRevenue = totalConfirmedSeats * (event.ticketPrice || 0);
+    const checkedInBookings = confirmedBookings.filter((b) => b.checkedIn);
+    const totalCheckedInSeats = checkedInBookings.reduce((sum, b) => sum + (b.ticketCount || 0), 0);
 
     res.status(200).json({
       event: {
@@ -243,12 +319,15 @@ const getEventAttendees = async (req, res) => {
         totalSeats: event.totalSeats,
         availableSeats: event.availableSeats,
         ticketPrice: event.ticketPrice,
+        ticketTiers: event.ticketTiers || [],
       },
       stats: {
         totalBookings: bookings.length,
         confirmedBookings: confirmedBookings.length,
         totalConfirmedSeats,
         totalRevenue,
+        checkedInBookings: checkedInBookings.length,
+        totalCheckedInSeats,
       },
       attendees: bookings,
     });
@@ -257,4 +336,105 @@ const getEventAttendees = async (req, res) => {
   }
 };
 
-module.exports = { bookTicket, cancelBooking, getMyBookings, getBookingById, getEventAttendees };
+// POST /api/bookings/check-in  (Organizer of event or Admin)
+const checkInAttendee = async (req, res) => {
+  try {
+    const { ticketRef, bookingId, eventId, qrData } = req.body;
+    let searchRef = ticketRef || qrData;
+    if (searchRef && typeof searchRef === 'string') {
+      try {
+        const trimmed = searchRef.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          const parsed = JSON.parse(trimmed);
+          searchRef = parsed.bookingId || searchRef;
+        }
+      } catch {}
+    }
+    const searchBookingId = bookingId || (mongoose.isValidObjectId(searchRef) ? searchRef : null);
+
+    if (!searchRef && !searchBookingId) {
+      return res.status(400).json({ message: 'Ticket reference code or bookingId is required' });
+    }
+
+    let booking = null;
+
+    if (searchBookingId && mongoose.isValidObjectId(searchBookingId)) {
+      booking = await Booking.findById(searchBookingId).populate('user', 'name email mobile').populate('event');
+    }
+
+    if (!booking && searchRef) {
+      const cleanRef = searchRef.trim().toUpperCase().replace('#BKG-', '').replace('BKG-', '');
+      if (mongoose.isValidObjectId(cleanRef)) {
+        booking = await Booking.findById(cleanRef).populate('user', 'name email mobile').populate('event');
+      } else {
+        const query = eventId ? { event: eventId } : {};
+        const candidates = await Booking.find(query).populate('user', 'name email mobile').populate('event');
+        booking = candidates.find((b) => {
+          const id = b._id.toString().toUpperCase();
+          return id.slice(-6) === cleanRef || id.endsWith(cleanRef);
+        });
+      }
+    }
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Ticket pass not found. Please verify the ticket reference number.' });
+    }
+
+    const event = booking.event;
+    if (!event) {
+      return res.status(404).json({ message: 'Event associated with this ticket was not found' });
+    }
+
+    if (req.user.role !== 'ADMIN' && event.organizer.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized: You are not the organizer for this event' });
+    }
+
+    if (booking.bookingStatus !== 'CONFIRMED') {
+      return res.status(400).json({
+        message: `Admission Denied: Ticket is ${booking.bookingStatus}. Only CONFIRMED tickets can enter.`,
+        bookingStatus: booking.bookingStatus,
+        attendee: booking.user,
+      });
+    }
+
+    if (booking.checkedIn) {
+      const formattedTime = booking.checkedInAt
+        ? new Date(booking.checkedInAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+        : 'Earlier';
+      return res.status(409).json({
+        message: `⚠️ Already Checked In: This ticket was verified at ${formattedTime}.`,
+        alreadyCheckedIn: true,
+        checkedInAt: booking.checkedInAt,
+        attendee: booking.user,
+        booking,
+      });
+    }
+
+    booking.checkedIn = true;
+    booking.checkedInAt = new Date();
+    booking.checkedInBy = req.user.id;
+    await booking.save();
+
+    res.status(200).json({
+      message: `🎉 Admission Approved! Welcome, ${booking.user?.name || 'Attendee'}.`,
+      success: true,
+      booking,
+      attendee: booking.user,
+      event: {
+        _id: event._id,
+        eventName: event.eventName,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Gate check-in failed', error: err.message });
+  }
+};
+
+module.exports = {
+  bookTicket,
+  cancelBooking,
+  getMyBookings,
+  getBookingById,
+  getEventAttendees,
+  checkInAttendee,
+};

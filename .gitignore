@@ -5,6 +5,7 @@ dist/
 frontend/dist/
 .env
 .env.*
+!.env.example
 backend/.env
 frontend/.env
 *.log

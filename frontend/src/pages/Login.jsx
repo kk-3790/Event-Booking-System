@@ -143,12 +143,42 @@ export default function Login() {
               variant="gradient"
               size="lg"
               loading={loading}
-              className="w-full mt-2"
+              className="w-full mt-2 cursor-pointer"
             >
               <span>Sign In</span>
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </form>
+
+          {/* Quick Demo Credentials Autofill */}
+          <div className="pt-1">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 block mb-2 text-center">
+              Quick Demo Autofill
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setForm({ email: 'organizer@eventhub.com', password: 'organizer123' })}
+                className="px-2 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition cursor-pointer text-center"
+              >
+                🏢 Organizer
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ email: 'admin@eventhub.com', password: 'admin123' })}
+                className="px-2 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[11px] font-semibold transition cursor-pointer text-center"
+              >
+                🛡️ Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ email: 'customer@eventhub.com', password: 'customer123' })}
+                className="px-2 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold transition cursor-pointer text-center"
+              >
+                🎟️ Customer
+              </button>
+            </div>
+          </div>
 
           {/* Divider */}
           <div className="relative my-4">
