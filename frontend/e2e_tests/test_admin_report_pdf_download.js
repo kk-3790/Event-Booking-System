@@ -179,6 +179,7 @@ async function testAdminReportPdfDownload() {
 
       const signoff = document.querySelector('#admin-report-container .print\\:block');
       const signoffVisible = isVisible(signoff);
+      const kpiCardsCount = document.querySelectorAll('#admin-report-container .report-kpi-card').length;
 
       return {
         bannerHidden,
@@ -188,6 +189,7 @@ async function testAdminReportPdfDownload() {
         reportVisible,
         letterheadVisible,
         signoffVisible,
+        kpiCardsCount,
       };
     });
 
@@ -198,6 +200,8 @@ async function testAdminReportPdfDownload() {
     assert(printVerification.reportVisible, 'Report container must be visible in print mode');
     assert(printVerification.letterheadVisible, 'Official print letterhead must be visible in print mode');
     assert(printVerification.signoffVisible, 'Audit sign-off footer must be visible in print mode');
+    assert.strictEqual(printVerification.kpiCardsCount, 3, 'Expected exactly 3 KPI summary cards');
+    console.log('  ✅ [PASS] 3 KPI summary cards verified (4th card removed as requested)');
     console.log('  ✅ [PASS] All dashboard clutter is completely hidden in print mode');
     console.log('  ✅ [PASS] Official letterhead, itemized table, and compliance sign-off are verified in print');
 

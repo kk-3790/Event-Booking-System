@@ -245,7 +245,14 @@ const cancelBooking = async (req, res) => {
 const getMyBookings = async (req, res) => {
   try {
     const bookings = await Booking.find({ user: req.user.id })
-      .populate('event', 'eventName date time venue ticketPrice')
+      .populate({
+        path: 'event',
+        select: 'eventName date time venue ticketPrice organizer category bannerImage ticketTiers',
+        populate: {
+          path: 'organizer',
+          select: 'name email mobile role'
+        }
+      })
       .sort({ createdAt: -1 });
 
     await Promise.all(
@@ -268,7 +275,15 @@ const getMyBookings = async (req, res) => {
 // GET /api/bookings/:id
 const getBookingById = async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('event').populate('user', 'name email');
+    const booking = await Booking.findById(req.params.id)
+      .populate({
+        path: 'event',
+        populate: {
+          path: 'organizer',
+          select: 'name email mobile role'
+        }
+      })
+      .populate('user', 'name email mobile');
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }

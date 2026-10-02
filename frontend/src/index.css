@@ -148,7 +148,7 @@ html.light textarea::placeholder {
     display: none !important;
   }
 
-  /* Admin Report printing mode */
+  /* Admin & Organizer Report printing mode */
   body.printing-report {
     background: #ffffff !important;
     color: #0f172a !important;
@@ -175,11 +175,16 @@ html.light textarea::placeholder {
   body.printing-report #admin-overview-kpis,
   body.printing-report #admin-tab-nav,
   body.printing-report #admin-report-form,
-  body.printing-report .glass-card:not(#admin-report-container) {
+  body.printing-report #organizer-header-banner,
+  body.printing-report #organizer-overview-kpis,
+  body.printing-report #organizer-tab-nav,
+  body.printing-report #organizer-report-form,
+  body.printing-report .glass-card:not(#admin-report-container):not(#organizer-report-container) {
     display: none !important;
   }
 
-  #admin-report-container {
+  #admin-report-container,
+  #organizer-report-container {
     background-color: #ffffff !important;
     color: #0f172a !important;
     border: none !important;
@@ -190,17 +195,21 @@ html.light textarea::placeholder {
     box-shadow: none !important;
   }
 
-  #admin-report-container table {
+  #admin-report-container table,
+  #organizer-report-container table {
     width: 100% !important;
     border-collapse: collapse !important;
   }
 
   #admin-report-container th,
-  #admin-report-container td {
+  #admin-report-container td,
+  #organizer-report-container th,
+  #organizer-report-container td {
     color: #0f172a !important;
   }
 
-  #admin-report-container th {
+  #admin-report-container th,
+  #organizer-report-container th {
     background-color: #f1f5f9 !important;
     color: #334155 !important;
   }
@@ -209,7 +218,12 @@ html.light textarea::placeholder {
   #admin-report-container .bg-slate-950,
   #admin-report-container .bg-slate-950\/70,
   #admin-report-container .bg-slate-950\/80,
-  #admin-report-container .bg-slate-950\/90 {
+  #admin-report-container .bg-slate-950\/90,
+  #organizer-report-container .bg-slate-900,
+  #organizer-report-container .bg-slate-950,
+  #organizer-report-container .bg-slate-950\/70,
+  #organizer-report-container .bg-slate-950\/80,
+  #organizer-report-container .bg-slate-950\/90 {
     background-color: #f8fafc !important;
     border-color: #e2e8f0 !important;
     color: #0f172a !important;
@@ -218,30 +232,41 @@ html.light textarea::placeholder {
   #admin-report-container .text-white,
   #admin-report-container .text-slate-100,
   #admin-report-container .text-slate-200,
-  #admin-report-container .text-slate-300 {
+  #admin-report-container .text-slate-300,
+  #organizer-report-container .text-white,
+  #organizer-report-container .text-slate-100,
+  #organizer-report-container .text-slate-200,
+  #organizer-report-container .text-slate-300 {
     color: #0f172a !important;
   }
 
   #admin-report-container .text-slate-400,
-  #admin-report-container .text-slate-500 {
+  #admin-report-container .text-slate-500,
+  #organizer-report-container .text-slate-400,
+  #organizer-report-container .text-slate-500 {
     color: #475569 !important;
   }
 
   #admin-report-container .border-slate-800,
-  #admin-report-container .border-slate-800\/60 {
+  #admin-report-container .border-slate-800\/60,
+  #organizer-report-container .border-slate-800,
+  #organizer-report-container .border-slate-800\/60 {
     border-color: #e2e8f0 !important;
   }
 
-  #admin-report-container tr {
+  #admin-report-container tr,
+  #organizer-report-container tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
 
-  #admin-report-container thead {
+  #admin-report-container thead,
+  #organizer-report-container thead {
     display: table-header-group !important;
   }
 
-  #admin-report-container tfoot {
+  #admin-report-container tfoot,
+  #organizer-report-container tfoot {
     display: table-footer-group !important;
   }
 

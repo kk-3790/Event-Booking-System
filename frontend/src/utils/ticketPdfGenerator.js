@@ -8,6 +8,19 @@ import { jsPDF } from 'jspdf';
  * @param {Object} options.user - The user/attendee details
  * @param {string} options.qrCodeDataUrl - Base64 PNG QR code data URL
  */
+/**
+ * Truncates text cleanly with an ellipsis (…) if it exceeds maxWidth in millimeters
+ */
+function fitText(doc, text, maxWidth) {
+  if (!text) return '';
+  let str = String(text);
+  if (doc.getTextWidth(str) <= maxWidth) return str;
+  while (str.length > 1 && doc.getTextWidth(str + '…') > maxWidth) {
+    str = str.slice(0, -1);
+  }
+  return str + '…';
+}
+
 export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   if (!booking) return;
 
@@ -68,13 +81,16 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.setFontSize(6.5);
   doc.text(tierName, 29, 39.2, { align: 'center' });
 
-  // Event Name
+  // Event Name (max 2 lines cleanly constrained)
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   const eventName = ev.eventName || 'Live Event Experience';
-  const splitTitle = doc.splitTextToSize(eventName, pageWidth - 24);
-  doc.text(splitTitle, 11, 47);
+  let splitTitle = doc.splitTextToSize(eventName, pageWidth - 24);
+  if (splitTitle.length > 2) {
+    splitTitle = [splitTitle[0], fitText(doc, splitTitle[1], pageWidth - 24)];
+  }
+  doc.text(splitTitle, 11, 46);
 
   // Event Date, Time, Venue
   const formattedDate = ev.date
@@ -86,22 +102,36 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
       })
     : 'Date TBD';
 
+  const titleLinesCount = splitTitle.length;
+  const dateY = titleLinesCount > 1 ? 55 : 53;
+  const venueY = dateY + 6;
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(129, 140, 248); // Indigo-400
-  doc.text('DATE & TIME:', 11, 56);
+  doc.text('DATE & TIME:', 11, dateY);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(226, 232, 240); // Slate-200
-  doc.text(`${formattedDate} ${ev.time ? `at ${ev.time}` : ''}`, 33, 56);
+  const dateTimeStr = fitText(doc, `${formattedDate} ${ev.time ? `at ${ev.time}` : ''}`, 62);
+  doc.text(dateTimeStr, 33, dateY);
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(129, 140, 248); // Indigo-400
-  doc.text('VENUE:', 11, 62);
+  doc.text('VENUE:', 11, venueY);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(226, 232, 240);
-  const venueText = ev.venue || 'Venue Address To Be Announced';
-  const splitVenue = doc.splitTextToSize(venueText, pageWidth - 36);
-  doc.text(splitVenue, 26, 62);
+  const venueText = fitText(doc, ev.venue || 'Venue Address To Be Announced', 68);
+  doc.text(venueText, 26, venueY);
+
+  const orgObj = ev.organizer || booking.organizer || {};
+  const orgName = typeof orgObj === 'string' ? orgObj : (orgObj.name || 'EventHub Certified Host');
+  const orgY = venueY + 5.5;
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(129, 140, 248); // Indigo-400
+  doc.text('ORGANIZER:', 11, orgY);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(226, 232, 240);
+  doc.text(fitText(doc, orgName, 64), 33, orgY);
 
   // Perforated Tear / Cut Divider Line with Notch Cutouts
   const tearY = 79;
@@ -128,7 +158,8 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
-  doc.text(attendee.name || 'Pass Holder', 12, 95);
+  const safeAttendeeName = fitText(doc, attendee.name || 'Pass Holder', 44);
+  doc.text(safeAttendeeName, 12, 95);
   const passQty = booking.ticketCount || 1;
   doc.text(`${passQty} ${passQty === 1 ? 'Ticket' : 'Tickets'}`, 60, 95);
 
@@ -142,7 +173,7 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
-  doc.text(bookTime, 12, 108);
+  doc.text(fitText(doc, bookTime, 44), 12, 108);
 
   const total = booking.totalAmount || ((ev.ticketPrice || 0) * (booking.ticketCount || 1));
   doc.setTextColor(52, 211, 153);
@@ -176,13 +207,13 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.setTextColor(15, 23, 42); // Slate-900
   doc.text(ticketRef, 52.5, qrBoxY + 46, { align: 'center' });
 
-  // Security Footer Notes
+  // Security Footer Notes (Scaled to strictly fit width)
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
+  doc.setFontSize(5.8);
   doc.setTextColor(148, 163, 184);
   doc.text('Present this QR code at the entrance turnstile for express gate check-in.', 52.5, 171, { align: 'center' });
   doc.setTextColor(100, 116, 139);
-  doc.setFontSize(5.5);
+  doc.setFontSize(5.2);
   doc.text('Verified Genuine Pass | 256-bit Encrypted Token | Powered by EventHub', 52.5, 175, { align: 'center' });
 
   // Sanitize filename

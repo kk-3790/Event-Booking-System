@@ -211,18 +211,6 @@ export default function AdminDashboard() {
             <RotateCcw className="w-3.5 h-3.5 mr-1" />
             <span>Refresh Hub</span>
           </Button>
-
-          <Button
-            variant="gradient"
-            size="sm"
-            onClick={() => {
-              setActiveTab('reports');
-              handleGenerateReport();
-            }}
-          >
-            <Download className="w-3.5 h-3.5 mr-1.5" />
-            <span>Export Report</span>
-          </Button>
         </div>
       </div>
 
@@ -542,9 +530,9 @@ export default function AdminDashboard() {
       {activeTab === 'bookings' && (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/60 overflow-hidden glass-card space-y-4 p-5">
           
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="text-xs font-bold text-slate-300">Live Booking Transactions</span>
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-xs flex-wrap">
               <button
                 onClick={() => setBookingStatusFilter('')}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition ${
@@ -562,6 +550,14 @@ export default function AdminDashboard() {
                 Confirmed
               </button>
               <button
+                onClick={() => setBookingStatusFilter('PAYMENT_FAILED')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  bookingStatusFilter === 'PAYMENT_FAILED' ? 'bg-rose-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Payment Failed
+              </button>
+              <button
                 onClick={() => setBookingStatusFilter('PENDING')}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition ${
                   bookingStatusFilter === 'PENDING' ? 'bg-amber-600 text-white' : 'bg-slate-800/60 text-slate-400'
@@ -572,10 +568,18 @@ export default function AdminDashboard() {
               <button
                 onClick={() => setBookingStatusFilter('EXPIRED')}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-                  bookingStatusFilter === 'EXPIRED' ? 'bg-rose-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                  bookingStatusFilter === 'EXPIRED' ? 'bg-slate-700 text-white' : 'bg-slate-800/60 text-slate-400'
                 }`}
               >
                 Expired
+              </button>
+              <button
+                onClick={() => setBookingStatusFilter('CANCELLED')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  bookingStatusFilter === 'CANCELLED' ? 'bg-rose-700 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Cancelled
               </button>
             </div>
           </div>
@@ -602,6 +606,7 @@ export default function AdminDashboard() {
                   const statusStyles = {
                     CONFIRMED: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/25',
                     PENDING: 'bg-amber-500/15 text-amber-300 border-amber-400/25',
+                    PAYMENT_FAILED: 'bg-rose-500/15 text-rose-300 border-rose-400/25 font-bold',
                     EXPIRED: 'bg-slate-700/30 text-slate-400 border-slate-600/30',
                     CANCELLED: 'bg-rose-500/15 text-rose-300 border-rose-400/25',
                   };
@@ -642,9 +647,9 @@ export default function AdminDashboard() {
       {activeTab === 'events' && (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/60 overflow-hidden glass-card space-y-4 p-5">
           
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="text-xs font-bold text-slate-300">All Platform Events</span>
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-xs flex-wrap">
               <button
                 onClick={() => setEventStatusFilter('')}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition ${
@@ -676,6 +681,14 @@ export default function AdminDashboard() {
                 }`}
               >
                 Completed
+              </button>
+              <button
+                onClick={() => setEventStatusFilter('CANCELLED')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                  eventStatusFilter === 'CANCELLED' ? 'bg-rose-600 text-white' : 'bg-slate-800/60 text-slate-400'
+                }`}
+              >
+                Cancelled / Deleted
               </button>
             </div>
           </div>
@@ -714,7 +727,15 @@ export default function AdminDashboard() {
                     <td className="p-3.5 font-extrabold text-white">₹{e.ticketPrice?.toLocaleString('en-IN')}</td>
                     <td className="p-3.5 font-bold text-slate-200">{e.availableSeats}</td>
                     <td className="p-3.5">
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        e.status === 'ACTIVE'
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
+                          : e.status === 'ONGOING'
+                          ? 'bg-purple-500/15 text-purple-400 border-purple-500/25'
+                          : e.status === 'COMPLETED'
+                          ? 'bg-slate-800 text-slate-400 border-slate-700'
+                          : 'bg-rose-500/15 text-rose-400 border-rose-500/25 font-bold'
+                      }`}>
                         {e.status}
                       </span>
                     </td>
@@ -817,7 +838,7 @@ export default function AdminDashboard() {
                     VERIFIED AUDIT
                   </div>
                   <p><span className="font-bold text-slate-800">Report Ref:</span> <span className="font-mono text-slate-700">{generatedReport.reportId || 'GEN-REP-AUDIT'}</span></p>
-                  <p><span className="font-bold text-slate-800">Auditor:</span> {user?.name || 'Administrator'} ({user?.email || 'admin@eventhub.com'})</p>
+                  <p><span className="font-bold text-slate-800">Auditor:</span> {user?.name || 'Administrator'}</p>
                   <p><span className="font-bold text-slate-800">Generated:</span> {new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                 </div>
               </div>
@@ -865,7 +886,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Report Metrics Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs report-kpi-grid">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs report-kpi-grid">
                 <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 report-kpi-card">
                   <span className="text-slate-400 block text-[11px] font-medium">Total Records</span>
                   <span className="text-xl font-bold text-white mt-1 block">
@@ -890,14 +911,6 @@ export default function AdminDashboard() {
                     ₹{(generatedReport.totalRevenue || 0).toLocaleString('en-IN')}
                   </span>
                   <span className="text-[10px] text-indigo-400/80 mt-0.5 block">Payment Gateway Reconciled</span>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 report-kpi-card">
-                  <span className="text-slate-400 block text-[11px] font-medium">Ledger Audit Status</span>
-                  <span className="text-base font-bold text-emerald-400 mt-1 block flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Cryptographically OK</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 mt-0.5 block">Zero discrepancies</span>
                 </div>
               </div>
 
@@ -1096,7 +1109,6 @@ export default function AdminDashboard() {
                   <div className="p-3 border border-slate-300 rounded bg-slate-50">
                     <div className="text-[9px] uppercase font-bold text-slate-500">Prepared & Audited By</div>
                     <div className="font-bold text-slate-900 text-xs mt-1">{user?.name || 'Platform Administrator'}</div>
-                    <div className="text-[10px] text-slate-600 font-mono">{user?.email || 'admin@eventhub.com'}</div>
                     <div className="text-[9px] text-slate-500 mt-2">Role: SUPER_ADMIN</div>
                   </div>
                   

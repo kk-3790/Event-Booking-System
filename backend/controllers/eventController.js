@@ -207,8 +207,11 @@ const deleteEvent = async (req, res) => {
       return res.status(403).json({ message: 'You are not allowed to delete this event' });
     }
 
-    await event.deleteOne();
-    res.status(200).json({ message: 'Event deleted successfully' });
+    // Soft delete: Mark event as CANCELLED so it remains visible for Admin oversight and historical audit ledgers
+    event.status = 'CANCELLED';
+    await event.save();
+
+    res.status(200).json({ message: 'Event deleted/cancelled successfully', event });
   } catch (err) {
     res.status(500).json({ message: 'Failed to delete event', error: err.message });
   }
@@ -219,7 +222,7 @@ const deleteEvent = async (req, res) => {
 const getAllEvents = async (req, res) => {
   try {
     await syncEventStatuses();
-    const events = await Event.find({ status: 'ACTIVE' }).populate('organizer', 'name email');
+    const events = await Event.find({ status: 'ACTIVE' }).populate('organizer', 'name email mobile role');
     res.status(200).json(events);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch events', error: err.message });
@@ -233,7 +236,7 @@ const getOrganizerEvents = async (req, res) => {
     await syncEventStatuses();
     const query = req.user.role === 'ADMIN' ? {} : { organizer: req.user.id };
     const events = await Event.find(query)
-      .populate('organizer', 'name email role')
+      .populate('organizer', 'name email mobile role')
       .sort({ createdAt: -1 });
     res.status(200).json(events);
   } catch (err) {
@@ -245,7 +248,7 @@ const getOrganizerEvents = async (req, res) => {
 // GET /api/events/:id  (public)
 const getEventById = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id).populate('organizer', 'name email');
+    const event = await Event.findById(req.params.id).populate('organizer', 'name email mobile role');
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }

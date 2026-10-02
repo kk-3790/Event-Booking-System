@@ -13,7 +13,8 @@ import {
   QrCode,
   Copy,
   Check,
-  CreditCard
+  CreditCard,
+  Users
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import * as paymentService from '../services/paymentService';
@@ -24,6 +25,10 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
   if (!isOpen || !booking) return null;
 
   const event = booking.event || {};
+  const organizerObj = event.organizer || booking.organizer || {};
+  const organizerName = typeof organizerObj === 'string' 
+    ? organizerObj 
+    : (organizerObj.name || 'EventHub Certified Organizer');
   const [paymentData, setPaymentData] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -223,6 +228,10 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
                   <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                   <span>{formattedDate} {event.time ? `| ${event.time}` : ''}</span>
                 </div>
+                <div className="flex items-center gap-1.5 text-purple-300 font-medium">
+                  <Users className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span>Host Organizer: <strong className="text-white font-semibold">{organizerName}</strong></span>
+                </div>
               </div>
             </div>
 
@@ -307,7 +316,14 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
           </div>
 
           {/* Payment Metadata Footer */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 rounded-2xl bg-slate-950/50 border border-slate-800/80 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 p-4 rounded-2xl bg-slate-950/50 border border-slate-800/80 text-xs">
+            <div>
+              <span className="text-[10px] text-slate-500 block">Host Organizer</span>
+              <span className="font-bold text-white mt-0.5 block truncate" title={organizerName}>
+                {organizerName}
+              </span>
+            </div>
+
             <div>
               <span className="text-[10px] text-slate-500 block">Payment Mode</span>
               <span className="font-bold text-slate-200 mt-0.5 block flex items-center gap-1">

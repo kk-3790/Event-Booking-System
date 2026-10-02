@@ -25,7 +25,7 @@ const eventSchema = new mongoose.Schema(
     organizer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: {
       type: String,
-      enum: ['ACTIVE', 'ONGOING', 'CANCELLED', 'COMPLETED'],
+      enum: ['ACTIVE', 'ONGOING', 'CANCELLED', 'COMPLETED', 'DELETED'],
       default: 'ACTIVE',
     },
   },

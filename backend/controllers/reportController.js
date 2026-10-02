@@ -20,6 +20,13 @@ const generateBookingReport = async (req, res) => {
     const filter = {};
     if (startDate || endDate) filter.createdAt = dateFilter;
 
+    // Multi-tenant isolation: If user is an ORGANIZER, restrict to their own events
+    if (req.user.role === 'ORGANIZER') {
+      const organizerEvents = await Event.find({ organizer: req.user.id }).select('_id');
+      const organizerEventIds = organizerEvents.map((e) => e._id);
+      filter.event = { $in: organizerEventIds };
+    }
+
     const bookings = await Booking.find(filter)
       .populate('user', 'name email')
       .populate('event', 'eventName date venue ticketPrice');
@@ -72,6 +79,9 @@ const generateEventReport = async (req, res) => {
       if (!event) {
         return res.status(404).json({ message: 'Event not found' });
       }
+      if (req.user.role === 'ORGANIZER' && event.organizer?._id?.toString() !== req.user.id.toString()) {
+        return res.status(403).json({ message: 'Access denied: You do not organize this event' });
+      }
       events = [event];
     } else {
       const dateFilter = {};
@@ -83,6 +93,9 @@ const generateEventReport = async (req, res) => {
       }
       const filter = {};
       if (startDate || endDate) filter.date = dateFilter;
+      if (req.user.role === 'ORGANIZER') {
+        filter.organizer = req.user.id;
+      }
 
       events = await Event.find(filter).populate('organizer', 'name email');
     }
@@ -134,12 +147,15 @@ const generateEventReport = async (req, res) => {
   }
 };
 
-// GET /api/reports  (Admin only) — audit history of previously generated reports
+// GET /api/reports  (Admin and Organizer) — audit history of previously generated reports
 const getReportHistory = async (req, res) => {
   try {
     const { reportType } = req.query;
     const filter = {};
     if (reportType) filter.reportType = reportType.toUpperCase();
+    if (req.user.role === 'ORGANIZER') {
+      filter.generatedBy = req.user.id;
+    }
 
     const reports = await Report.find(filter)
       .populate('generatedBy', 'name email')
@@ -152,12 +168,15 @@ const getReportHistory = async (req, res) => {
   }
 };
 
-// GET /api/reports/:id  (Admin only) — view one past report with full data
+// GET /api/reports/:id  (Admin and Organizer) — view one past report with full data
 const getReportById = async (req, res) => {
   try {
     const report = await Report.findById(req.params.id).populate('generatedBy', 'name email');
     if (!report) {
       return res.status(404).json({ message: 'Report not found' });
+    }
+    if (req.user.role === 'ORGANIZER' && report.generatedBy?._id?.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ message: 'Access denied: You do not have access to this report' });
     }
     res.status(200).json(report);
   } catch (err) {
