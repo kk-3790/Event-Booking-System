@@ -207,8 +207,10 @@ const cancelBooking = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    if (req.user.role !== 'ADMIN' && booking.user.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'You are not allowed to cancel this booking' });
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        message: 'Customer self-cancellation is disabled. Ticket cancellations and refunds are managed exclusively by event hosts and administrators.',
+      });
     }
 
     await expireIfNeeded(booking);

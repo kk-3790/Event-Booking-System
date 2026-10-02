@@ -96,18 +96,12 @@ export default function MyBookings() {
   // Filter tab: 'ALL' | 'CONFIRMED' | 'PENDING' | 'CANCELLED'
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  // Cancel modal state
-  const [cancellingBooking, setCancellingBooking] = useState(null);
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [cancelError, setCancelError] = useState('');
-
   // Payment & Receipt modal state
   const [payingBooking, setPayingBooking] = useState(null);
   const [receiptBooking, setReceiptBooking] = useState(null);
   const [paymentToast, setPaymentToast] = useState('');
   const [clientQrMap, setClientQrMap] = useState({});
   const [enlargedQrBooking, setEnlargedQrBooking] = useState(null);
-
   useEffect(() => {
     if (location.state?.paymentToast) {
       setPaymentToast(location.state.paymentToast);
@@ -144,25 +138,6 @@ export default function MyBookings() {
       }
     });
   }, [bookings, clientQrMap]);
-
-  const handleCancelBooking = async () => {
-    if (!cancellingBooking) return;
-    setCancelLoading(true);
-    setCancelError('');
-    try {
-      await bookingService.cancelBooking(cancellingBooking._id);
-      setBookings((prev) =>
-        prev.map((b) =>
-          b._id === cancellingBooking._id ? { ...b, bookingStatus: 'CANCELLED' } : b
-        )
-      );
-      setCancellingBooking(null);
-    } catch (err) {
-      setCancelError(err.response?.data?.message || 'Failed to cancel booking. Please try again.');
-    } finally {
-      setCancelLoading(false);
-    }
-  };
 
   const handlePaymentSuccess = () => {
     if (payingBooking) {
@@ -554,16 +529,6 @@ export default function MyBookings() {
                           <span>Complete Payment (₹{totalAmount})</span>
                         </Button>
                       )}
-
-                      {!isCancelled && (
-                        <button
-                          onClick={() => setCancellingBooking(booking)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition cursor-pointer"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Cancel Booking</span>
-                        </button>
-                      )}
                     </div>
 
                   </div>
@@ -687,55 +652,6 @@ export default function MyBookings() {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Cancel Booking Confirmation Modal */}
-      {cancellingBooking && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-md w-full rounded-3xl bg-slate-900 border border-slate-800 p-6 md:p-8 shadow-2xl space-y-6">
-            
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto text-xl border border-rose-500/20">
-              <XCircle className="w-6 h-6 text-rose-400" />
-            </div>
-
-            <div className="text-center space-y-1.5">
-              <h3 className="text-xl font-bold text-white">Cancel Booking?</h3>
-              <p className="text-xs text-slate-400">
-                Are you sure you want to cancel your passes for{' '}
-                <span className="text-white font-semibold">
-                  {cancellingBooking.event?.eventName}
-                </span>
-                ? Your reserved seats will be immediately released back to other attendees.
-              </p>
-            </div>
-
-            {cancelError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
-                {cancelError}
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCancellingBooking(null)}
-                disabled={cancelLoading}
-              >
-                Keep Booking
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                loading={cancelLoading}
-                onClick={handleCancelBooking}
-              >
-                Confirm Cancellation
-              </Button>
-            </div>
-
-          </div>
         </div>
       )}
 
