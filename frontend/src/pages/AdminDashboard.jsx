@@ -18,9 +18,11 @@ import {
   Filter,
   BarChart3,
   MapPin,
-  ExternalLink
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { downloadReportPdf } from '../utils/reportPdfGenerator';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -143,6 +145,22 @@ export default function AdminDashboard() {
     } finally {
       setReportLoading(false);
     }
+  };
+
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      document.body.classList.remove('printing-report');
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+      document.body.classList.remove('printing-report');
+    };
+  }, []);
+
+  const handlePrintReport = () => {
+    document.body.classList.add('printing-report');
+    window.print();
   };
 
   // Filtered users by search text
@@ -762,7 +780,7 @@ export default function AdminDashboard() {
 
           {/* Generated Report Display */}
           {generatedReport && (
-            <div className="p-6 rounded-3xl bg-slate-900/80 border border-indigo-500/30 shadow-2xl glass-card space-y-6">
+            <div id="admin-report-container" className="p-6 rounded-3xl bg-slate-900/80 border border-indigo-500/30 shadow-2xl glass-card space-y-6">
               
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
                 <div>
@@ -777,14 +795,32 @@ export default function AdminDashboard() {
                   </p>
                 </div>
 
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => window.print()}
-                >
-                  <Download className="w-3.5 h-3.5 mr-1.5" />
-                  <span>Print / Export PDF</span>
-                </Button>
+                <div className="flex items-center gap-2 print:hidden">
+                  <Button
+                    variant="gradient"
+                    size="sm"
+                    onClick={() =>
+                      downloadReportPdf({
+                        reportType,
+                        reportData: generatedReport,
+                        adminUser: user,
+                      })
+                    }
+                    className="cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Download PDF</span>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handlePrintReport}
+                    className="cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Print Report</span>
+                  </Button>
+                </div>
               </div>
 
               {/* Report Metrics Row */}

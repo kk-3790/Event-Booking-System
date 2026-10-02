@@ -140,8 +140,52 @@ html.light textarea::placeholder {
     overflow: visible !important;
   }
 
-  /* Completely remove the underlying application from print rendering */
-  #root,
+  /* Receipt printing mode: Hide entire #root and show only portal */
+  body.printing-receipt #root {
+    display: none !important;
+  }
+  body:not(.printing-receipt) #receipt-modal-portal {
+    display: none !important;
+  }
+
+  /* Admin Report printing mode */
+  body.printing-report nav,
+  body.printing-report footer,
+  body.printing-report div[role="tablist"],
+  body.printing-report .glass-card:not(#admin-report-container) {
+    display: none !important;
+  }
+
+  #admin-report-container {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    box-shadow: none !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #admin-report-container .bg-slate-900,
+  #admin-report-container .bg-slate-950,
+  #admin-report-container .bg-slate-950\/70,
+  #admin-report-container .bg-slate-950\/80 {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+  }
+
+  #admin-report-container .text-white,
+  #admin-report-container .text-slate-100 {
+    color: #0f172a !important;
+  }
+
+  #admin-report-container .text-slate-400 {
+    color: #475569 !important;
+  }
+
   nav,
   footer,
   .print\:hidden {
