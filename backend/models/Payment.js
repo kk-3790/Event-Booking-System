@@ -9,9 +9,12 @@ const paymentSchema = new mongoose.Schema(
     paymentMethod: { type: String, default: 'UPI' }, // UPI, Card, Netbanking, etc.
     paymentStatus: {
       type: String,
-      enum: ['PENDING', 'SUCCESS', 'FAILED'],
+      enum: ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'],
       default: 'PENDING',
     },
+    refundId: { type: String },
+    refundAmount: { type: Number },
+    refundedAt: { type: Date },
   },
   { timestamps: true }
 );

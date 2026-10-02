@@ -117,23 +117,30 @@ export const downloadReportPdf = ({ reportType, reportData, adminUser }) => {
 
   // 4. Executive KPI Cards (Exact 3 Cards)
   currentY += 28;
-  const cardWidth = (contentWidth - 6) / 3;
+  const hasRefunds = (reportData.totalRefunded || 0) > 0;
+  const numCards = hasRefunds ? 4 : 3;
+  const cardWidth = (contentWidth - (numCards - 1) * 3) / numCards;
   const cardHeight = 18;
 
   const totalRecords = reportData.totalBookings ?? reportData.totalEvents ?? 0;
   const confirmedTickets = reportData.totalTicketsConfirmed ?? 0;
   const revenue = reportData.totalRevenue || 0;
+  const refunded = reportData.totalRefunded || 0;
 
   const kpis = [
     { label: 'TOTAL RECORDS', val: `${totalRecords}` },
     { 
-      label: reportType === 'bookings' ? 'CONFIRMED PASSES' : 'TOTAL CAPACITY / SOLD', 
+      label: reportType === 'bookings' ? 'CONFIRMED PASSES' : 'CAPACITY / SOLD', 
       val: reportType === 'bookings' 
         ? `${confirmedTickets}` 
         : `${reportData.events?.reduce((acc, ev) => acc + (ev.ticketsSold || 0), 0) || 0} Sold`
     },
-    { label: 'GROSS REVENUE', val: `INR ${revenue.toLocaleString('en-IN')}` },
+    { label: hasRefunds ? 'NET REVENUE' : 'GROSS REVENUE', val: `INR ${revenue.toLocaleString('en-IN')}` },
   ];
+
+  if (hasRefunds) {
+    kpis.push({ label: 'TOTAL REFUNDED', val: `INR ${refunded.toLocaleString('en-IN')}` });
+  }
 
   kpis.forEach((kpi, idx) => {
     const kpiX = margin + idx * (cardWidth + 3);

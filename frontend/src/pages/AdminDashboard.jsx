@@ -629,6 +629,16 @@ export default function AdminDashboard() {
                         <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusStyles[b.bookingStatus] || statusStyles.PENDING}`}>
                           {b.bookingStatus}
                         </span>
+                        {b.refundStatus === 'PROCESSED' && (
+                          <span className="block text-[9px] text-emerald-400 font-mono font-bold mt-0.5">
+                            100% REFUNDED
+                          </span>
+                        )}
+                        {b.cancellationReason && (
+                          <span className="block text-[9px] text-slate-400 max-w-[140px] truncate" title={b.cancellationReason}>
+                            {b.cancellationReason}
+                          </span>
+                        )}
                       </td>
                       <td className="p-3.5 text-slate-400">
                         {new Date(b.createdAt).toLocaleString()}
@@ -886,7 +896,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Report Metrics Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs report-kpi-grid">
+              <div className={`grid grid-cols-1 ${generatedReport.totalRefunded > 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-4 text-xs report-kpi-grid`}>
                 <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 report-kpi-card">
                   <span className="text-slate-400 block text-[11px] font-medium">Total Records</span>
                   <span className="text-xl font-bold text-white mt-1 block">
@@ -906,12 +916,23 @@ export default function AdminDashboard() {
                   <span className="text-[10px] text-emerald-500/80 mt-0.5 block">Passes confirmed</span>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 report-kpi-card">
-                  <span className="text-slate-400 block text-[11px] font-medium">Gross Revenue Reconciled</span>
+                  <span className="text-slate-400 block text-[11px] font-medium">
+                    {generatedReport.totalRefunded > 0 ? 'Net Active Revenue' : 'Gross Revenue Reconciled'}
+                  </span>
                   <span className="text-xl font-bold text-indigo-400 mt-1 block">
                     ₹{(generatedReport.totalRevenue || 0).toLocaleString('en-IN')}
                   </span>
                   <span className="text-[10px] text-indigo-400/80 mt-0.5 block">Payment Gateway Reconciled</span>
                 </div>
+                {generatedReport.totalRefunded > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 report-kpi-card">
+                    <span className="text-slate-400 block text-[11px] font-medium">Total Refunded</span>
+                    <span className="text-xl font-bold text-rose-400 mt-1 block">
+                      ₹{generatedReport.totalRefunded.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-rose-400/80 mt-0.5 block">Cancelled / 100% Refunded</span>
+                  </div>
+                )}
               </div>
 
               {/* Itemized Booking Transactions Table */}

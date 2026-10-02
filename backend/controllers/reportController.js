@@ -44,12 +44,16 @@ const generateBookingReport = async (req, res) => {
     const payments = await Payment.find({ booking: { $in: bookingIds }, paymentStatus: 'SUCCESS' });
     const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
 
+    const refundedPayments = await Payment.find({ booking: { $in: bookingIds }, paymentStatus: 'REFUNDED' });
+    const totalRefunded = refundedPayments.reduce((sum, p) => sum + (p.refundAmount || p.amount || 0), 0);
+
     const reportData = {
       dateRange: { startDate: startDate || 'all time', endDate: endDate || 'all time' },
       totalBookings: bookings.length,
       statusBreakdown: statusCounts,
       totalTicketsConfirmed: totalTicketsBooked,
       totalRevenue,
+      totalRefunded,
       bookings,
     };
 
@@ -110,6 +114,9 @@ const generateEventReport = async (req, res) => {
         const payments = await Payment.find({ booking: { $in: bookingIds }, paymentStatus: 'SUCCESS' });
         const revenue = payments.reduce((sum, p) => sum + p.amount, 0);
 
+        const refundedPayments = await Payment.find({ booking: { $in: bookingIds }, paymentStatus: 'REFUNDED' });
+        const refundedAmount = refundedPayments.reduce((sum, p) => sum + (p.refundAmount || p.amount || 0), 0);
+
         return {
           eventId: event._id,
           eventName: event.eventName,
@@ -122,6 +129,7 @@ const generateEventReport = async (req, res) => {
           ticketsSold,
           totalBookings: bookings.length,
           revenue,
+          refundedAmount,
         };
       })
     );

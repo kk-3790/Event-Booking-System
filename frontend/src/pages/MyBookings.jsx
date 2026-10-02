@@ -326,6 +326,11 @@ export default function MyBookings() {
             const isConfirmed = booking.bookingStatus === 'CONFIRMED';
             const isPending = booking.bookingStatus === 'PENDING';
             const isCancelled = booking.bookingStatus === 'CANCELLED';
+            const isEventCancelled = isCancelled && (
+              booking.cancellationReason?.toLowerCase().includes('event cancelled') ||
+              event.status === 'CANCELLED' ||
+              booking.refundStatus === 'PROCESSED'
+            );
 
             const formattedEventDate = event.date
               ? new Date(event.date).toLocaleDateString('en-US', {
@@ -401,7 +406,7 @@ export default function MyBookings() {
                         {isCancelled && (
                           <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-400/25 flex items-center gap-1.5">
                             <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                            Booking Cancelled
+                            {isEventCancelled ? 'Event Cancelled • 100% Refunded' : 'Booking Cancelled'}
                           </span>
                         )}
                       </div>
@@ -410,6 +415,23 @@ export default function MyBookings() {
                         {ticketRef}
                       </span>
                     </div>
+
+                    {/* Event Cancelled & Refund Notice Banner */}
+                    {isCancelled && (
+                      <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-200 text-xs flex items-start gap-2.5">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-rose-300">
+                            {isEventCancelled ? 'Event Cancelled by Host — 100% Refund Initiated' : 'Reservation Cancelled'}
+                          </p>
+                          <p className="text-[11px] text-slate-300">
+                            {isEventCancelled
+                              ? `The event organizer has cancelled this listing. A full 100% refund of ₹${totalAmount.toLocaleString('en-IN')} has been initiated to your original payment method. Your entry pass is marked void.`
+                              : (booking.cancellationReason || 'This booking has been cancelled and seat allocations have been released.')}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Pending Urgent Notice Banner */}
                     {isPending && (
@@ -622,6 +644,22 @@ export default function MyBookings() {
                           </span>
                           <p className="text-[10px] text-slate-400 max-w-[170px]">
                             Entry QR gate code will unlock as soon as payment is confirmed
+                          </p>
+                        </div>
+                      </>
+                    ) : isEventCancelled ? (
+                      <>
+                        <div className="w-24 h-24 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center text-emerald-400 space-y-1">
+                          <RotateCcw className="w-8 h-8 text-emerald-400 animate-pulse" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider font-mono text-emerald-300">REFUNDED</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-xs font-mono font-bold text-emerald-300 block">
+                            100% REFUNDED
+                          </span>
+                          <p className="text-[10px] text-emerald-400/90 font-medium max-w-[170px]">
+                            ₹{totalAmount.toLocaleString('en-IN')} credited to original payment source
                           </p>
                         </div>
                       </>

@@ -197,9 +197,19 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
             </div>
 
             <div className="text-right">
-              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Payment Confirmed
-              </span>
+              {paymentData?.paymentStatus === 'REFUNDED' || booking.refundStatus === 'PROCESSED' ? (
+                <span className="inline-block px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  100% Refunded
+                </span>
+              ) : booking.bookingStatus === 'CANCELLED' ? (
+                <span className="inline-block px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                  Cancelled
+                </span>
+              ) : (
+                <span className="inline-block px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Payment Confirmed
+                </span>
+              )}
               <p className="text-xs text-slate-400 mt-1 font-mono">
                 Receipt #REC-{booking._id.slice(-8).toUpperCase()}
               </p>

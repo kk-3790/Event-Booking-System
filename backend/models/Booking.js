@@ -32,6 +32,13 @@ const bookingSchema = new mongoose.Schema(
     checkedInBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     // Generated scannable QR code data URL (encoded at booking time)
     qrCode: { type: String },
+    // Cancellation & Refund tracking
+    cancellationReason: { type: String },
+    refundStatus: {
+      type: String,
+      enum: ['NONE', 'PENDING', 'PROCESSED', 'FAILED'],
+      default: 'NONE',
+    },
   },
   { timestamps: true }
 );
