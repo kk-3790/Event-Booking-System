@@ -23,11 +23,8 @@ const generateBookingQrCode = async (bookingId) => {
 };
 
 // How long a PENDING booking holds its seats before it auto-expires and
-// releases them back to the event. 10 minutes matches common industry
-// practice for ticketing platforms (e.g. BookMyShow-style checkout holds) —
-// long enough to complete payment, short enough that seats don't stay
-// locked by abandoned bookings.
-const BOOKING_HOLD_MINUTES = 10;
+// releases them back to the event. Set to 10 minutes (BookMyShow standard checkout hold).
+const BOOKING_HOLD_MINUTES = process.env.BOOKING_HOLD_MINUTES ? parseInt(process.env.BOOKING_HOLD_MINUTES) : 10;
 
 // If a booking is PENDING and past its expiresAt, marks it EXPIRED and
 // releases its seats back to the event. Called live wherever a booking is
@@ -36,6 +33,7 @@ const BOOKING_HOLD_MINUTES = 10;
 const expireIfNeeded = async (booking) => {
   if (booking.bookingStatus === 'PENDING' && booking.expiresAt && booking.expiresAt < new Date()) {
     booking.bookingStatus = 'EXPIRED';
+    booking.cancellationReason = `Hold Expired: Checkout window (${BOOKING_HOLD_MINUTES} minutes) elapsed without payment. Reserved seats were automatically released.`;
     await booking.save();
     const event = await Event.findById(booking.event);
     if (event) {

@@ -11,7 +11,7 @@ const Event = require('../models/Event');
 // for cases where nobody happens to view/act on the booking directly (the
 // controllers also do this same check live, on read/cancel).
 const startBookingExpiryJob = () => {
-  cron.schedule('*/2 * * * *', async () => {
+  cron.schedule('* * * * *', async () => {
     try {
       const expiredBookings = await Booking.find({
         bookingStatus: 'PENDING',
@@ -23,10 +23,18 @@ const startBookingExpiryJob = () => {
       await Promise.all(
         expiredBookings.map(async (booking) => {
           booking.bookingStatus = 'EXPIRED';
+          booking.cancellationReason = 'Hold Expired: Checkout window elapsed without payment. Reserved seats were automatically released.';
           await booking.save();
-          await Event.findByIdAndUpdate(booking.event, {
-            $inc: { availableSeats: booking.ticketCount },
-          });
+
+          const event = await Event.findById(booking.event);
+          if (event) {
+            event.availableSeats += booking.ticketCount;
+            if (booking.tierName && event.ticketTiers && event.ticketTiers.length > 0) {
+              const tier = event.ticketTiers.find((t) => t.tierName === booking.tierName);
+              if (tier) tier.availableSeats += booking.ticketCount;
+            }
+            await event.save();
+          }
         })
       );
 

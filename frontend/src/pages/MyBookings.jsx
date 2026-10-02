@@ -30,7 +30,7 @@ import ReceiptModal from '../components/ReceiptModal';
 import { downloadTicketPdf, downloadQrImage } from '../utils/ticketPdfGenerator';
 
 // Countdown Timer Component for PENDING bookings
-function ExpiryCountdown({ expiresAt }) {
+function ExpiryCountdown({ expiresAt, onExpire }) {
   const [timeLeft, setTimeLeft] = useState('');
   const [isExpired, setIsExpired] = useState(false);
 
@@ -43,12 +43,16 @@ function ExpiryCountdown({ expiresAt }) {
       const diff = target - now;
 
       if (diff <= 0) {
-        setTimeLeft('Hold expired');
+        setTimeLeft('00s (Expired)');
         setIsExpired(true);
+        if (onExpire) {
+          onExpire();
+        }
       } else {
-        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft(`${mins}m ${secs < 10 ? '0' : ''}${secs}s`);
+        const totalSecs = Math.ceil(diff / 1000);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        setTimeLeft(mins > 0 ? `${mins}m ${secs < 10 ? '0' : ''}${secs}s` : `${secs}s left`);
         setIsExpired(false);
       }
     };
@@ -56,7 +60,7 @@ function ExpiryCountdown({ expiresAt }) {
     calcTime();
     const interval = setInterval(calcTime, 1000);
     return () => clearInterval(interval);
-  }, [expiresAt]);
+  }, [expiresAt, onExpire]);
 
   if (!expiresAt) return null;
 
@@ -149,14 +153,32 @@ export default function MyBookings() {
     }
   };
 
-  const filteredBookings = bookings.filter((b) => {
-    if (statusFilter === 'ALL') return true;
-    return b.bookingStatus === statusFilter;
-  });
+  // Expiry helper functions (presents expired bookings under Cancelled in customer section for presence)
+  const isBookingExpired = (b) => {
+    if (!b) return false;
+    if (b.bookingStatus === 'EXPIRED') return true;
+    if (b.bookingStatus === 'PENDING' && b.expiresAt) {
+      return new Date(b.expiresAt).getTime() <= Date.now();
+    }
+    return false;
+  };
+
+  const isCustomerCancelledOrExpired = (b) => {
+    if (!b) return false;
+    return b.bookingStatus === 'CANCELLED' || isBookingExpired(b);
+  };
 
   const confirmedCount = bookings.filter((b) => b.bookingStatus === 'CONFIRMED').length;
-  const pendingCount = bookings.filter((b) => b.bookingStatus === 'PENDING').length;
-  const cancelledCount = bookings.filter((b) => b.bookingStatus === 'CANCELLED').length;
+  const pendingCount = bookings.filter((b) => b.bookingStatus === 'PENDING' && !isBookingExpired(b)).length;
+  const cancelledCount = bookings.filter((b) => isCustomerCancelledOrExpired(b)).length;
+
+  const filteredBookings = bookings.filter((b) => {
+    if (statusFilter === 'ALL') return true;
+    if (statusFilter === 'CONFIRMED') return b.bookingStatus === 'CONFIRMED';
+    if (statusFilter === 'PENDING') return b.bookingStatus === 'PENDING' && !isBookingExpired(b);
+    if (statusFilter === 'CANCELLED') return isCustomerCancelledOrExpired(b);
+    return b.bookingStatus === statusFilter;
+  });
 
   return (
     <div className="min-h-screen pb-20 pt-8 px-4 lg:px-8 max-w-6xl mx-auto w-full space-y-8">
@@ -299,12 +321,24 @@ export default function MyBookings() {
           {filteredBookings.map((booking) => {
             const event = booking.event || {};
             const isConfirmed = booking.bookingStatus === 'CONFIRMED';
-            const isPending = booking.bookingStatus === 'PENDING';
-            const isCancelled = booking.bookingStatus === 'CANCELLED';
-            const isEventCancelled = isCancelled && (
+            const isExpired = isBookingExpired(booking);
+            const isPending = booking.bookingStatus === 'PENDING' && !isExpired;
+            const isCancelled = isCustomerCancelledOrExpired(booking);
+
+            const isEventCancelled = (booking.bookingStatus === 'CANCELLED' || event.status === 'CANCELLED') && (
               booking.cancellationReason?.toLowerCase().includes('event cancelled') ||
+              booking.cancellationReason?.toLowerCase().includes('organizer') ||
+              booking.cancellationReason?.toLowerCase().includes('host') ||
               event.status === 'CANCELLED' ||
               booking.refundStatus === 'PROCESSED'
+            );
+
+            const isHoldExpired = isExpired || booking.bookingStatus === 'EXPIRED' || (
+              booking.cancellationReason && (
+                booking.cancellationReason.toLowerCase().includes('hold expired') ||
+                booking.cancellationReason.toLowerCase().includes('checkout window') ||
+                booking.cancellationReason.toLowerCase().includes('elapsed')
+              )
             );
 
             const formattedEventDate = event.date
@@ -375,15 +409,25 @@ export default function MyBookings() {
                               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
                               Payment Pending
                             </span>
-                            <ExpiryCountdown expiresAt={booking.expiresAt} />
+                            <ExpiryCountdown expiresAt={booking.expiresAt} onExpire={fetchBookings} />
                           </div>
                         )}
-                        {isCancelled && (
+                        {isHoldExpired ? (
                           <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-400/25 flex items-center gap-1.5">
                             <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                            {isEventCancelled ? 'Event Cancelled • 100% Refunded' : 'Booking Cancelled'}
+                            Hold Expired • Cancelled
                           </span>
-                        )}
+                        ) : isEventCancelled ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-400/25 flex items-center gap-1.5">
+                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                            Event Cancelled • 100% Refunded
+                          </span>
+                        ) : isCancelled ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-400/25 flex items-center gap-1.5">
+                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                            Booking Cancelled
+                          </span>
+                        ) : null}
                       </div>
 
                       <span className="text-xs font-mono font-bold text-slate-500">
@@ -391,18 +435,28 @@ export default function MyBookings() {
                       </span>
                     </div>
 
-                    {/* Event Cancelled & Refund Notice Banner */}
+                    {/* Cancellation & Expiry Notice Banner */}
                     {isCancelled && (
-                      <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-200 text-xs flex items-start gap-2.5">
-                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                      <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-2.5 ${
+                        isHoldExpired 
+                          ? 'bg-amber-500/10 border-amber-500/20 text-amber-200' 
+                          : 'bg-rose-500/10 border-rose-500/20 text-rose-200'
+                      }`}>
+                        <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${isHoldExpired ? 'text-amber-400' : 'text-rose-400'}`} />
                         <div className="space-y-0.5">
-                          <p className="font-semibold text-rose-300">
-                            {isEventCancelled ? 'Event Cancelled by Host — 100% Refund Initiated' : 'Reservation Cancelled'}
+                          <p className={`font-semibold ${isHoldExpired ? 'text-amber-300' : 'text-rose-300'}`}>
+                            {isHoldExpired 
+                              ? 'Hold Expired — Reservation Cancelled' 
+                              : isEventCancelled 
+                                ? 'Event Cancelled by Host / Organizer — 100% Refund Initiated' 
+                                : 'Reservation Cancelled'}
                           </p>
                           <p className="text-[11px] text-slate-300">
-                            {isEventCancelled
-                              ? `The event organizer has cancelled this listing. A full 100% refund of ₹${totalAmount.toLocaleString('en-IN')} has been initiated to your original payment method. Your entry pass is marked void.`
-                              : (booking.cancellationReason || 'This booking has been cancelled and seat allocations have been released.')}
+                            {isHoldExpired
+                              ? (booking.cancellationReason || 'Payment hold time (10 minutes) elapsed without completed payment. Reserved seats were automatically released back to the event.')
+                              : isEventCancelled
+                                ? `The event organizer has cancelled this listing. A full 100% refund of ₹${totalAmount.toLocaleString('en-IN')} has been initiated to your original payment method. Your entry pass is marked void.`
+                                : (booking.cancellationReason || 'This booking has been cancelled and seat allocations have been released.')}
                           </p>
                         </div>
                       </div>
@@ -609,6 +663,22 @@ export default function MyBookings() {
                           </span>
                           <p className="text-[10px] text-slate-400 max-w-[170px]">
                             Entry QR gate code will unlock as soon as payment is confirmed
+                          </p>
+                        </div>
+                      </>
+                    ) : isHoldExpired ? (
+                      <>
+                        <div className="w-24 h-24 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex flex-col items-center justify-center text-amber-400 space-y-1">
+                          <Hourglass className="w-8 h-8 text-amber-400" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider font-mono text-amber-300">EXPIRED</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-xs font-mono font-bold text-amber-300 block">
+                            HOLD TIMEOUT
+                          </span>
+                          <p className="text-[10px] text-slate-400 max-w-[170px]">
+                            10-minute payment hold elapsed; seats released back to event
                           </p>
                         </div>
                       </>

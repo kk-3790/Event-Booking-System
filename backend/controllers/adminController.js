@@ -36,6 +36,27 @@ const getUserById = async (req, res) => {
 // Supports optional filters: ?status=CONFIRMED  ?eventId=...  ?userId=...
 const getAllBookings = async (req, res) => {
   try {
+    // Reconcile any stale PENDING bookings past their expiresAt
+    const now = new Date();
+    const staleBookings = await Booking.find({
+      bookingStatus: 'PENDING',
+      expiresAt: { $lt: now },
+    });
+    for (const b of staleBookings) {
+      b.bookingStatus = 'EXPIRED';
+      b.cancellationReason = 'Hold Expired: Checkout window (10 mins) elapsed without payment. Reserved seats were released.';
+      await b.save();
+      const event = await Event.findById(b.event);
+      if (event) {
+        event.availableSeats += b.ticketCount;
+        if (b.tierName && event.ticketTiers && event.ticketTiers.length > 0) {
+          const tier = event.ticketTiers.find((t) => t.tierName === b.tierName);
+          if (tier) tier.availableSeats += b.ticketCount;
+        }
+        await event.save();
+      }
+    }
+
     const { status, eventId, userId } = req.query;
     const filter = {};
     if (status) filter.bookingStatus = status.toUpperCase();
