@@ -59,7 +59,15 @@ const categoryStyles = {
   },
 };
 
-const CATEGORIES = ['All', 'Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
+const STANDARD_CATEGORIES = ['Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
+const CATEGORIES = ['All', ...STANDARD_CATEGORIES, 'Other'];
+
+const getNormalizedCategory = (category) => {
+  if (!category || !STANDARD_CATEGORIES.includes(category)) {
+    return 'Other';
+  }
+  return category;
+};
 
 export default function EventList() {
   const { user } = useAuth();
@@ -120,7 +128,10 @@ export default function EventList() {
 
       // 2. Category Filter
       if (activeCategory !== 'All') {
-        if (event.category?.toLowerCase() !== activeCategory.toLowerCase()) {
+        const eventCat = getNormalizedCategory(event.category);
+        if (activeCategory === 'Other') {
+          if (eventCat !== 'Other') return false;
+        } else if (eventCat.toLowerCase() !== activeCategory.toLowerCase()) {
           return false;
         }
       }
@@ -440,7 +451,7 @@ export default function EventList() {
 
                       <div className="relative z-10 flex items-center justify-between">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-md border ${theme.badge}`}>
-                          {event.category}
+                          {getNormalizedCategory(event.category)}
                         </span>
 
                         <div className="flex items-center gap-1.5">

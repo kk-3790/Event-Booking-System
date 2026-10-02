@@ -38,7 +38,15 @@ import CheckInScannerModal from '../components/CheckInScannerModal';
 import * as reportService from '../services/reportService';
 import { downloadReportPdf } from '../utils/reportPdfGenerator';
 
-const CATEGORIES = ['Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
+const STANDARD_CATEGORIES = ['Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
+const CATEGORIES = [...STANDARD_CATEGORIES, 'Other'];
+
+const getNormalizedCategory = (category) => {
+  if (!category || !STANDARD_CATEGORIES.includes(category)) {
+    return 'Other';
+  }
+  return category;
+};
 
 const PRESET_BANNERS = [
   { label: 'Tech Summit', url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80' },
@@ -146,7 +154,7 @@ export default function OrganizerDashboard() {
     const hasTiers = Boolean(event.ticketTiers && event.ticketTiers.length > 0);
     setFormData({
       eventName: event.eventName || '',
-      category: event.category || 'Technology',
+      category: getNormalizedCategory(event.category),
       venue: event.venue || '',
       date: event.date ? new Date(event.date).toISOString().slice(0, 10) : '',
       time: event.time || '10:00',
@@ -366,14 +374,20 @@ export default function OrganizerDashboard() {
 
   // Filtered listings
   const filteredEvents = events.filter((e) => {
-    if (selectedCategory !== 'All' && e.category !== selectedCategory) {
-      return false;
+    const eventCat = getNormalizedCategory(e.category);
+    if (selectedCategory !== 'All') {
+      if (selectedCategory === 'Other') {
+        if (eventCat !== 'Other') return false;
+      } else if (e.category !== selectedCategory) {
+        return false;
+      }
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchesName = e.eventName?.toLowerCase().includes(q);
       const matchesVenue = e.venue?.toLowerCase().includes(q);
-      if (!matchesName && !matchesVenue) return false;
+      const matchesCat = eventCat.toLowerCase().includes(q) || (e.category && e.category.toLowerCase().includes(q));
+      if (!matchesName && !matchesVenue && !matchesCat) return false;
     }
     return true;
   });
@@ -683,7 +697,7 @@ export default function OrganizerDashboard() {
                     </td>
                     <td className="p-3.5">
                       <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
-                        {event.category}
+                        {getNormalizedCategory(event.category)}
                       </span>
                     </td>
                     <td className="p-3.5 text-slate-300">
