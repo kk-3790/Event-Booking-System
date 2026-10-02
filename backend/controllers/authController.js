@@ -10,6 +10,8 @@ const generateToken = (user) => {
   );
 };
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 // R.1.1 Register User
 // POST /api/auth/register
 const registerUser = async (req, res) => {
@@ -20,11 +22,25 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Name, email, mobile, and password are required' });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const cleanEmail = String(email).trim().toLowerCase();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address (e.g. name@gmail.com)' });
+    }
+
+    const cleanMobile = String(mobile).trim();
+    if (!/^[0-9]{10}$/.test(cleanMobile)) {
+      return res.status(400).json({ message: 'Please enter a valid 10-digit mobile number' });
+    }
+
+    if (String(password).length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    const existingUser = await User.findOne({ email: cleanEmail });
     if (existingUser) {
       return res.status(400).json({ message: 'A user with this email already exists' });
     }
-    const existingMobile = await User.findOne({ mobile });
+    const existingMobile = await User.findOne({ mobile: cleanMobile });
     if (existingMobile) {
       return res.status(400).json({ message: 'A user with this mobile number already exists' });
     }
@@ -32,9 +48,9 @@ const registerUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = await User.create({
-      name,
-      email,
-      mobile,
+      name: String(name).trim(),
+      email: cleanEmail,
+      mobile: cleanMobile,
       password: hashedPassword,
       role: role && ['ADMIN', 'ORGANIZER', 'CUSTOMER'].includes(role) ? role : 'CUSTOMER',
     });
@@ -61,7 +77,12 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const cleanEmail = String(email).trim().toLowerCase();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address (e.g. name@gmail.com)' });
+    }
+
+    const user = await User.findOne({ email: cleanEmail });
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }

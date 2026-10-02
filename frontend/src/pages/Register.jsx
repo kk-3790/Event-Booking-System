@@ -25,12 +25,37 @@ export default function Register() {
     setForm({ ...form, role: selectedRole });
   };
 
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const emailTrimmed = form.email.trim();
+    if (!EMAIL_REGEX.test(emailTrimmed)) {
+      setError('Please enter a valid email address with a valid domain (e.g. name@gmail.com)');
+      return;
+    }
+
+    const mobileTrimmed = form.mobile.trim();
+    if (!/^[0-9]{10}$/.test(mobileTrimmed)) {
+      setError('Please enter a valid 10-digit mobile number');
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
     setLoading(true);
     try {
-      const user = await register(form);
+      const user = await register({
+        ...form,
+        name: form.name.trim(),
+        email: emailTrimmed,
+        mobile: mobileTrimmed,
+      });
       if (user?.role === 'ORGANIZER') {
         navigate('/organizer/events');
       } else {
@@ -137,6 +162,8 @@ export default function Register() {
                 onChange={handleChange}
                 icon={Mail}
                 required
+                pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+                title="Please enter a valid email address with a domain (e.g. name@gmail.com)"
               />
 
               <Input
@@ -148,6 +175,9 @@ export default function Register() {
                 onChange={handleChange}
                 icon={Phone}
                 required
+                pattern="[0-9]{10}"
+                maxLength={10}
+                title="Please enter a valid 10-digit mobile number"
               />
             </div>
 

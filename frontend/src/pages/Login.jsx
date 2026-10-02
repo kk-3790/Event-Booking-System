@@ -32,19 +32,31 @@ export default function Login() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const emailTrimmed = form.email.trim();
+    if (!EMAIL_REGEX.test(emailTrimmed)) {
+      setError('Please enter a valid email address with a valid domain (e.g. name@gmail.com)');
+      return;
+    }
+
     setLoading(true);
     try {
       // Handle Remember Me persistence
       if (rememberMe) {
-        localStorage.setItem('rememberedEmail', form.email);
+        localStorage.setItem('rememberedEmail', emailTrimmed);
       } else {
         localStorage.removeItem('rememberedEmail');
       }
 
-      const user = await login(form);
+      const user = await login({
+        ...form,
+        email: emailTrimmed,
+      });
       if (user?.role === 'ADMIN') {
         navigate('/admin');
       } else if (user?.role === 'ORGANIZER') {
@@ -105,6 +117,8 @@ export default function Login() {
               icon={Mail}
               required
               autoComplete="email"
+              pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+              title="Please enter a valid email address with a valid domain (e.g. name@gmail.com)"
             />
 
             <Input
