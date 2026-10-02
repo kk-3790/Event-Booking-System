@@ -533,7 +533,7 @@ export default function EventList() {
                     <div className="flex items-center justify-between pt-3.5 border-t border-slate-800/80">
                       <div>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">
-                          {event.ticketTiers && event.ticketTiers.length > 1 ? 'Passes From' : 'Ticket Price'}
+                          {event.ticketTiers && event.ticketTiers.length > 1 ? 'Tickets from' : 'Ticket Price'}
                         </span>
                         <span className="text-xl font-black text-white">
                           ₹{(event.ticketTiers && event.ticketTiers.length > 0
