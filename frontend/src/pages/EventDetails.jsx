@@ -320,31 +320,14 @@ export default function EventDetails() {
             </div>
 
             {/* Organizer Info */}
-            <div className="space-y-3 pb-6 border-b border-slate-800/80">
+            <div className="space-y-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <User className="w-5 h-5 text-purple-400" />
                 <span>Hosted By</span>
               </h3>
               <div className="pl-7 text-sm">
                 <p className="font-semibold text-white">{event.organizer?.name || 'Verified Event Organizer'}</p>
-                {event.organizer?.email && (
-                  <p className="text-xs text-slate-400 mt-0.5">{event.organizer.email}</p>
-                )}
               </div>
-            </div>
-
-            {/* Experience Highlights */}
-            <div className="space-y-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-pink-400" />
-                <span>What to Expect</span>
-              </h3>
-              <ul className="text-xs md:text-sm text-slate-300 space-y-2 pl-7 list-disc">
-                <li>Instant QR entry pass issued upon payment confirmation.</li>
-                <li>Reserved seat confirmation with guaranteed admission.</li>
-                <li>10-minute seat lock applied upon initiating checkout.</li>
-                <li>Cancel anytime up to event start time for full seat release.</li>
-              </ul>
             </div>
 
           </div>
@@ -359,7 +342,7 @@ export default function EventDetails() {
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                  {selectedTier ? selectedTier.tierName : 'Admission Pass'}
+                  {selectedTier ? selectedTier.tierName : 'Standard Admission'}
                 </span>
                 <span className="text-2xl font-black text-white mt-0.5 block">
                   ₹{baseTicketPrice.toLocaleString('en-IN')}
@@ -370,8 +353,8 @@ export default function EventDetails() {
               </span>
             </div>
 
-            {/* Pass Tier Selector if event has tiers */}
-            {event.ticketTiers && event.ticketTiers.length > 0 && (
+            {/* Pass Tier Selector if event has tiers, or Standard Pass if no tiers */}
+            {event.ticketTiers && event.ticketTiers.length > 0 ? (
               <div className="space-y-2.5">
                 <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
@@ -435,6 +418,19 @@ export default function EventDetails() {
                     );
                   })}
                 </div>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 inline-block"></span>
+                    Standard Admission
+                  </span>
+                  <span className="text-[11px] font-bold text-indigo-400">Single Tier</span>
+                </div>
+                <p className="text-[11px] text-slate-400 pl-3.5">
+                  General pass with full event access and guaranteed entry.
+                </p>
               </div>
             )}
 

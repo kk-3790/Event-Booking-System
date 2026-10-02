@@ -328,9 +328,6 @@ export default function EventList() {
           <div>
             <div className="flex items-center gap-2.5">
               <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white">Upcoming Experiences</h2>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-indigo-400 border border-slate-700">
-                {sortedEvents.length} of {allEvents.length} Events
-              </span>
               {isSearching && (
                 <span className="inline-flex items-center gap-1 text-[11px] text-indigo-400 font-medium animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span>
@@ -447,9 +444,13 @@ export default function EventList() {
                         </span>
 
                         <div className="flex items-center gap-1.5">
-                          {event.ticketTiers && event.ticketTiers.length > 0 && (
+                          {event.ticketTiers && event.ticketTiers.length > 0 ? (
                             <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 backdrop-blur-md">
                               {event.ticketTiers.length} Tiers
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-800/80 text-slate-300 border border-slate-700/80 backdrop-blur-md">
+                              Standard Pass
                             </span>
                           )}
                           {isUrgent ? (
@@ -521,7 +522,7 @@ export default function EventList() {
                     <div className="flex items-center justify-between pt-3.5 border-t border-slate-800/80">
                       <div>
                         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 block">
-                          {event.ticketTiers && event.ticketTiers.length > 1 ? 'Passes From' : 'Tickets From'}
+                          {event.ticketTiers && event.ticketTiers.length > 1 ? 'Passes From' : 'Ticket Price'}
                         </span>
                         <span className="text-xl font-black text-white">
                           ₹{(event.ticketTiers && event.ticketTiers.length > 0
