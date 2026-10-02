@@ -125,6 +125,11 @@ const updateEvent = async (req, res) => {
       return res.status(403).json({ message: 'You are not allowed to update this event' });
     }
 
+    // Cancelled or deleted events cannot be modified
+    if (event.status === 'CANCELLED' || event.status === 'DELETED') {
+      return res.status(400).json({ message: 'This event has been cancelled and cannot be edited.' });
+    }
+
     // If eventName is being changed, make sure it's not already taken by another event
     if (req.body.eventName && req.body.eventName.trim() !== event.eventName) {
       const duplicateEvent = await Event.findOne({

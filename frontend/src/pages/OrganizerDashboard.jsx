@@ -150,6 +150,9 @@ export default function OrganizerDashboard() {
 
   // Open Edit Modal
   const openEditModal = (event) => {
+    if (event.status === 'CANCELLED' || event.status === 'DELETED') {
+      return;
+    }
     setActiveEvent(event);
     const hasTiers = Boolean(event.ticketTiers && event.ticketTiers.length > 0);
     setFormData({
@@ -176,6 +179,9 @@ export default function OrganizerDashboard() {
 
   // Open Delete Modal
   const openDeleteModal = (event) => {
+    if (event.status === 'CANCELLED' || event.status === 'DELETED') {
+      return;
+    }
     setActiveEvent(event);
     setModalError('');
     setModalMode('delete');
@@ -762,10 +768,16 @@ export default function OrganizerDashboard() {
                     })
                   : 'N/A';
 
+                const isCancelled = event.status === 'CANCELLED' || event.status === 'DELETED';
+                const isOngoing = event.status === 'ONGOING';
+                const isCompleted = event.status === 'COMPLETED';
+
                 return (
-                  <tr key={event._id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={event._id} className={`hover:bg-slate-800/30 transition-colors ${isCancelled ? 'opacity-85 bg-rose-500/[0.03]' : ''}`}>
                     <td className="p-3.5 font-bold text-white max-w-[200px] truncate">
-                      {event.eventName}
+                      <span className={isCancelled ? 'line-through text-slate-400 font-medium' : ''}>
+                        {event.eventName}
+                      </span>
                     </td>
                     <td className="p-3.5">
                       <span className="px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">
@@ -783,51 +795,76 @@ export default function OrganizerDashboard() {
                       ₹{event.ticketPrice?.toLocaleString('en-IN')}
                     </td>
                     <td className="p-3.5">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-300">
-                        {event.availableSeats} seats
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${isCancelled ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20' : 'bg-slate-800 text-slate-300'}`}>
+                        {isCancelled ? 'Cancelled' : `${event.availableSeats} seats`}
                       </span>
                     </td>
                     <td className="p-3.5">
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        isCancelled
+                          ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                          : isOngoing
+                          ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                          : isCompleted
+                          ? 'bg-slate-700/40 text-slate-400 border-slate-600/30'
+                          : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
+                      }`}>
                         {event.status}
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
-                      <button
-                        onClick={() => setScannerEvent(event)}
-                        className="inline-flex p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition cursor-pointer"
-                        title="Gate Admission & QR Scanner"
-                      >
-                        <QrCode className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setRewardDrawEvent(event)}
-                        className="inline-flex p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition cursor-pointer"
-                        title="Configure Lucky Draw & Promotional Discount"
-                      >
-                        <Gift className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setAttendeesEvent(event)}
-                        className="inline-flex p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition cursor-pointer"
-                        title="View Attendees & Export CSV"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => openEditModal(event)}
-                        className="inline-flex p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-300 transition cursor-pointer"
-                        title="Edit Event"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(event)}
-                        className="inline-flex p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer"
-                        title="Delete Event"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isCancelled ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono text-rose-300 font-bold px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25">
+                            Cancelled • 100% Refunded
+                          </span>
+                          <button
+                            onClick={() => setAttendeesEvent(event)}
+                            className="inline-flex p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition cursor-pointer"
+                            title="View Attendee Manifest & Refund History"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setScannerEvent(event)}
+                            className="inline-flex p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition cursor-pointer"
+                            title="Gate Admission & QR Scanner"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setRewardDrawEvent(event)}
+                            className="inline-flex p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition cursor-pointer"
+                            title="Configure Lucky Draw & Promotional Discount"
+                          >
+                            <Gift className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setAttendeesEvent(event)}
+                            className="inline-flex p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition cursor-pointer"
+                            title="View Attendees & Export CSV"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(event)}
+                            className="inline-flex p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-300 transition cursor-pointer"
+                            title="Edit Event"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openDeleteModal(event)}
+                            className="inline-flex p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer"
+                            title="Delete Event"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 );

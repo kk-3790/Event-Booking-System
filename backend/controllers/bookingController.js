@@ -454,6 +454,13 @@ const checkInAttendee = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized: You are not the organizer for this event' });
     }
 
+    if (event.status === 'CANCELLED' || event.status === 'DELETED') {
+      return res.status(400).json({
+        message: 'Admission Denied: This event has been cancelled by the host.',
+        bookingStatus: 'CANCELLED',
+      });
+    }
+
     if (booking.bookingStatus !== 'CONFIRMED') {
       return res.status(400).json({
         message: `Admission Denied: Ticket is ${booking.bookingStatus}. Only CONFIRMED tickets can enter.`,
