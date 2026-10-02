@@ -39,7 +39,7 @@ async function testAdminReportPdfDownload() {
       },
       {
         _id: '6701a2b3c4d5e6f7a8b9c0d2',
-        user: { name: 'Priya Sharma', email: 'priya@example.com' },
+        user: { name: 'Anita Roy', email: 'anita@example.com' },
         event: { eventName: 'Music Concert 2026', ticketPrice: 499 },
         ticketCount: 1,
         bookingStatus: 'CONFIRMED',
@@ -129,9 +129,81 @@ async function testAdminReportPdfDownload() {
     assert(hasPrintBtn, 'Print Report button must be present in report actions');
     console.log('  ✅ [PASS] Both "Download PDF" and "Print Report" buttons are active and present');
 
-    // Capture screenshot of the generated report with new buttons
+    // Verify itemized ledger table is rendered in the UI
+    const tableInfo = await page.evaluate(() => {
+      const table = document.querySelector('#admin-report-container table');
+      if (!table) return null;
+      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      const headers = Array.from(table.querySelectorAll('thead th')).map((th) => th.innerText.trim());
+      const hasSummary = !!table.querySelector('tfoot');
+      return { rowCount: rows.length, headers, hasSummary };
+    });
+
+    assert(tableInfo, 'Itemized ledger table must be present inside #admin-report-container');
+    assert(tableInfo.rowCount > 0, 'Table must contain transaction rows');
+    assert(tableInfo.hasSummary, 'Table must contain summary total footer');
+    console.log(`  ✅ [PASS] Itemized ledger table verified with ${tableInfo.rowCount} rows and summary footer`);
+
+    // Capture screen view screenshot
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'admin_report_with_download_pdf_button.png'), fullPage: false });
     console.log('  📸 Captured screenshot: screenshots/admin_report_with_download_pdf_button.png');
+
+    // -------------------------------------------------------------------------
+    // TEST 3: VERIFY PRINT REPORT LAYOUT ISOLATION & PURITY
+    // -------------------------------------------------------------------------
+    console.log('\n--- Test 3: Verifying Print Report Layout & Discarding Clutter ---');
+    
+    // Simulate print mode by adding printing-report class and emulating print media
+    await page.evaluate(() => {
+      document.body.classList.add('printing-report');
+    });
+    await page.emulateMediaType('print');
+    await new Promise((r) => setTimeout(r, 600));
+
+    const printVerification = await page.evaluate(() => {
+      const isVisible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+      };
+
+      const bannerHidden = !isVisible(document.querySelector('#admin-header-banner'));
+      const kpisHidden = !isVisible(document.querySelector('#admin-overview-kpis'));
+      const tabNavHidden = !isVisible(document.querySelector('#admin-tab-nav'));
+      const formHidden = !isVisible(document.querySelector('#admin-report-form'));
+      const reportVisible = isVisible(document.querySelector('#admin-report-container'));
+
+      // Check letterhead and signoff in print
+      const letterhead = document.querySelector('#admin-report-container .print\\:flex');
+      const letterheadVisible = isVisible(letterhead);
+
+      const signoff = document.querySelector('#admin-report-container .print\\:block');
+      const signoffVisible = isVisible(signoff);
+
+      return {
+        bannerHidden,
+        kpisHidden,
+        tabNavHidden,
+        formHidden,
+        reportVisible,
+        letterheadVisible,
+        signoffVisible,
+      };
+    });
+
+    assert(printVerification.bannerHidden, 'Header banner must be hidden in print mode');
+    assert(printVerification.kpisHidden, 'Overview KPI stats must be hidden in print mode');
+    assert(printVerification.tabNavHidden, 'Tab navigation bar must be hidden in print mode');
+    assert(printVerification.formHidden, 'Report generator form must be hidden in print mode');
+    assert(printVerification.reportVisible, 'Report container must be visible in print mode');
+    assert(printVerification.letterheadVisible, 'Official print letterhead must be visible in print mode');
+    assert(printVerification.signoffVisible, 'Audit sign-off footer must be visible in print mode');
+    console.log('  ✅ [PASS] All dashboard clutter is completely hidden in print mode');
+    console.log('  ✅ [PASS] Official letterhead, itemized table, and compliance sign-off are verified in print');
+
+    // Capture clean print screenshot
+    await page.screenshot({ path: path.join(SCREENSHOTS_DIR, 'test_admin_print.png'), fullPage: true });
+    console.log('  📸 Captured clean print screenshot: screenshots/test_admin_print.png');
 
     console.log('\n=============================================================');
     console.log('🎉 ADMIN REPORT PDF DOWNLOAD & PRINT VERIFICATION COMPLETE!');

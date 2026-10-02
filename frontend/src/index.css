@@ -149,9 +149,32 @@ html.light textarea::placeholder {
   }
 
   /* Admin Report printing mode */
+  body.printing-report {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  body.printing-report #root {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.printing-report #root > div {
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
   body.printing-report nav,
   body.printing-report footer,
+  body.printing-report header,
   body.printing-report div[role="tablist"],
+  body.printing-report .print\:hidden,
+  body.printing-report #admin-header-banner,
+  body.printing-report #admin-overview-kpis,
+  body.printing-report #admin-tab-nav,
+  body.printing-report #admin-report-form,
   body.printing-report .glass-card:not(#admin-report-container) {
     display: none !important;
   }
@@ -159,31 +182,67 @@ html.light textarea::placeholder {
   #admin-report-container {
     background-color: #ffffff !important;
     color: #0f172a !important;
-    border: 1.5px solid #cbd5e1 !important;
-    border-radius: 12px !important;
-    padding: 20px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
     box-shadow: none !important;
-    page-break-after: avoid !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
+  }
+
+  #admin-report-container table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #admin-report-container th,
+  #admin-report-container td {
+    color: #0f172a !important;
+  }
+
+  #admin-report-container th {
+    background-color: #f1f5f9 !important;
+    color: #334155 !important;
   }
 
   #admin-report-container .bg-slate-900,
   #admin-report-container .bg-slate-950,
   #admin-report-container .bg-slate-950\/70,
-  #admin-report-container .bg-slate-950\/80 {
+  #admin-report-container .bg-slate-950\/80,
+  #admin-report-container .bg-slate-950\/90 {
     background-color: #f8fafc !important;
     border-color: #e2e8f0 !important;
     color: #0f172a !important;
   }
 
   #admin-report-container .text-white,
-  #admin-report-container .text-slate-100 {
+  #admin-report-container .text-slate-100,
+  #admin-report-container .text-slate-200,
+  #admin-report-container .text-slate-300 {
     color: #0f172a !important;
   }
 
-  #admin-report-container .text-slate-400 {
+  #admin-report-container .text-slate-400,
+  #admin-report-container .text-slate-500 {
     color: #475569 !important;
+  }
+
+  #admin-report-container .border-slate-800,
+  #admin-report-container .border-slate-800\/60 {
+    border-color: #e2e8f0 !important;
+  }
+
+  #admin-report-container tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #admin-report-container thead {
+    display: table-header-group !important;
+  }
+
+  #admin-report-container tfoot {
+    display: table-footer-group !important;
   }
 
   nav,
