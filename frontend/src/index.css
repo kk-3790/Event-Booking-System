@@ -113,3 +113,115 @@ html.light input::placeholder,
 html.light textarea::placeholder {
   color: #94a3b8 !important;
 }
+
+/* ================= OFFICIAL 1-PAGE TAX INVOICE PRINT STYLES ================= */
+@media print {
+  @page {
+    size: portrait;
+    margin: 8mm 10mm;
+  }
+
+  /* Force background colors and exact contrast */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Completely remove the underlying application from print rendering */
+  #root,
+  nav,
+  footer,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  #receipt-modal-portal {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  #receipt-modal-portal > div {
+    max-width: 100% !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  #printable-receipt {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 16px 20px !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Clean high-contrast print typography and card sections */
+  #printable-receipt .bg-slate-900,
+  #printable-receipt .bg-slate-950,
+  #printable-receipt .bg-slate-950\/80,
+  #printable-receipt .bg-slate-950\/60,
+  #printable-receipt .bg-slate-950\/50,
+  #printable-receipt .bg-slate-950\/90 {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+    color: #0f172a !important;
+  }
+
+  #printable-receipt .border-slate-800,
+  #printable-receipt .border-slate-800\/80,
+  #printable-receipt .border-slate-800\/60 {
+    border-color: #cbd5e1 !important;
+  }
+
+  #printable-receipt .text-white,
+  #printable-receipt .text-slate-100,
+  #printable-receipt .text-slate-200 {
+    color: #0f172a !important;
+  }
+
+  #printable-receipt .text-slate-300,
+  #printable-receipt .text-slate-400 {
+    color: #475569 !important;
+  }
+
+  #printable-receipt .text-slate-500 {
+    color: #64748b !important;
+  }
+
+  #printable-receipt tfoot tr {
+    background-color: #f1f5f9 !important;
+  }
+
+  #printable-receipt tfoot td {
+    color: #0f172a !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+}

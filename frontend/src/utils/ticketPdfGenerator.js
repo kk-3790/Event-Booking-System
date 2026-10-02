@@ -86,14 +86,22 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
       })
     : 'Date TBD';
 
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(129, 140, 248); // Indigo-400
+  doc.text('DATE & TIME:', 11, 56);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(203, 213, 225); // Slate-300
-  doc.text(`📅  ${formattedDate} ${ev.time ? `at ${ev.time}` : ''}`, 11, 57);
+  doc.setTextColor(226, 232, 240); // Slate-200
+  doc.text(`${formattedDate} ${ev.time ? `at ${ev.time}` : ''}`, 33, 56);
 
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(129, 140, 248); // Indigo-400
+  doc.text('VENUE:', 11, 62);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(226, 232, 240);
   const venueText = ev.venue || 'Venue Address To Be Announced';
-  const splitVenue = doc.splitTextToSize(`📍  ${venueText}`, pageWidth - 24);
-  doc.text(splitVenue, 11, 62);
+  const splitVenue = doc.splitTextToSize(venueText, pageWidth - 36);
+  doc.text(splitVenue, 26, 62);
 
   // Perforated Tear / Cut Divider Line with Notch Cutouts
   const tearY = 79;
@@ -121,7 +129,8 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
   doc.text(attendee.name || 'Pass Holder', 12, 95);
-  doc.text(`${booking.ticketCount || 1} Person (${booking.ticketCount > 1 ? 's' : ''})`, 60, 95);
+  const passQty = booking.ticketCount || 1;
+  doc.text(`${passQty} ${passQty === 1 ? 'Ticket' : 'Tickets'}`, 60, 95);
 
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
@@ -140,26 +149,32 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.text(`INR ${total.toLocaleString('en-IN')}`, 60, 108);
 
   // QR Code Pass Section
-  const qrBoxY = 116;
+  const qrBoxY = 114;
+  const qrBoxW = 54;
+  const qrBoxH = 52;
+  const qrBoxX = (pageWidth - qrBoxW) / 2; // 25.5 mm
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(26, qrBoxY, 53, 50, 4, 4, 'F');
+  doc.roundedRect(qrBoxX, qrBoxY, qrBoxW, qrBoxH, 4, 4, 'F');
 
   if (qrImage) {
     try {
-      doc.addImage(qrImage, 'PNG', 30, qrBoxY + 3, 45, 45);
+      const qrSize = 36; // 36mm x 36mm
+      const qrX = (pageWidth - qrSize) / 2; // 34.5 mm
+      const qrY = qrBoxY + 3; // 117 mm
+      doc.addImage(qrImage, 'PNG', qrX, qrY, qrSize, qrSize);
     } catch (e) {
       // fallback if image fail
       doc.setFontSize(8);
       doc.setTextColor(0, 0, 0);
-      doc.text('PASS QR CODE', 52.5, qrBoxY + 25, { align: 'center' });
+      doc.text('PASS QR CODE', 52.5, qrBoxY + 22, { align: 'center' });
     }
   }
 
-  // Ref Code below QR
+  // Ref Code below QR with 7mm clear vertical separation (NO overlap)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(15, 23, 42);
-  doc.text(ticketRef, 52.5, qrBoxY + 47, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42); // Slate-900
+  doc.text(ticketRef, 52.5, qrBoxY + 46, { align: 'center' });
 
   // Security Footer Notes
   doc.setFont('helvetica', 'normal');
@@ -168,7 +183,7 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.text('Present this QR code at the entrance turnstile for express gate check-in.', 52.5, 171, { align: 'center' });
   doc.setTextColor(100, 116, 139);
   doc.setFontSize(5.5);
-  doc.text('Verified Genuine Pass • 256-bit Encrypted Token • Powered by EventHub', 52.5, 175, { align: 'center' });
+  doc.text('Verified Genuine Pass | 256-bit Encrypted Token | Powered by EventHub', 52.5, 175, { align: 'center' });
 
   // Sanitize filename
   const cleanEventName = (ev.eventName || 'Event').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
@@ -181,6 +196,7 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
 
 /**
  * Downloads the QR code as a high-resolution PNG image pass
+ * with reference code positioned cleanly below the QR matrix
  */
 export const downloadQrImage = ({ booking, event, qrCodeDataUrl }) => {
   const qr = qrCodeDataUrl || booking?.qrCode;
@@ -189,12 +205,74 @@ export const downloadQrImage = ({ booking, event, qrCodeDataUrl }) => {
   const ev = event || booking?.event || {};
   const cleanEventName = (ev.eventName || 'Event').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
   const cleanRef = (booking?._id || '').slice(-6).toUpperCase();
+  const ticketRef = `#BKG-${cleanRef}`;
   const filename = `QR_Pass_${cleanEventName}_BKG-${cleanRef}.png`;
 
-  const link = document.createElement('a');
-  link.href = qr;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 440;
+    canvas.height = 540;
+    const ctx = canvas.getContext('2d');
+
+    // Clean white card background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Border
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+
+    // Event title & badge
+    ctx.fillStyle = '#4f46e5';
+    ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('OFFICIAL GATE ENTRY PASS', 220, 38);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const title = (ev.eventName || 'Event Pass').slice(0, 32);
+    ctx.fillText(title, 220, 68);
+
+    // Load QR image
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Draw QR centered: 300x300, starting at Y=85, ends at Y=385
+      ctx.drawImage(img, 70, 85, 300, 300);
+
+      // Reference text well below QR: Y=430 (45px gap, zero overlap)
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 22px monospace, Courier, sans-serif';
+      ctx.fillText(ticketRef, 220, 430);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('Scan at entrance gate | EventHub Verified Pass', 220, 475);
+
+      const brandedPng = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = brandedPng;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+    img.onerror = () => {
+      const link = document.createElement('a');
+      link.href = qr;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+    img.src = qr;
+  } catch (err) {
+    const link = document.createElement('a');
+    link.href = qr;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 };

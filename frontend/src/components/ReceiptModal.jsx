@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, 
   Printer, 
@@ -73,7 +74,19 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
     };
   }, [booking._id]);
 
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      document.body.classList.remove('printing-receipt');
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+      document.body.classList.remove('printing-receipt');
+    };
+  }, []);
+
   const handlePrint = () => {
+    document.body.classList.add('printing-receipt');
     window.print();
   };
 
@@ -118,8 +131,8 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
       })
     : '');
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+  return createPortal(
+    <div id="receipt-modal-portal" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="relative w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden glass-card my-6">
         
         {/* Modal Controls Header (Hidden on print) */}
@@ -186,7 +199,7 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
                 Receipt #REC-{booking._id.slice(-8).toUpperCase()}
               </p>
               <p className="text-[11px] text-slate-400">
-                {bookingTimeStr ? `Booked: ${bookingTimeStr} • ` : ''}{issueDate}
+                {bookingTimeStr ? `Booked: ${bookingTimeStr} | ` : ''}{issueDate}
               </p>
             </div>
           </div>
@@ -208,7 +221,7 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span>{formattedDate} {event.time ? `• ${event.time}` : ''}</span>
+                  <span>{formattedDate} {event.time ? `| ${event.time}` : ''}</span>
                 </div>
               </div>
             </div>
@@ -274,8 +287,8 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
                   </tr>
                   <tr>
                     <td className="py-2.5 px-4 text-slate-400">Platform Processing & GST (5%)</td>
-                    <td className="py-2.5 px-4 text-center text-slate-500">—</td>
-                    <td className="py-2.5 px-4 text-right text-slate-500">—</td>
+                    <td className="py-2.5 px-4 text-center text-slate-500">-</td>
+                    <td className="py-2.5 px-4 text-right text-slate-500">-</td>
                     <td className="py-2.5 px-4 text-right font-mono text-slate-300">
                       ₹{platformFee.toLocaleString('en-IN')}
                     </td>
@@ -347,6 +360,7 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
