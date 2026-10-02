@@ -232,6 +232,7 @@ const deleteEvent = async (req, res) => {
         totalRefundsIssued += refundedAmount;
 
         // In production/sandbox, trigger Razorpay refund API if configured
+        let gatewayRefundId = null;
         if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET && payment.transactionId) {
           try {
             const Razorpay = require('razorpay');
@@ -239,20 +240,25 @@ const deleteEvent = async (req, res) => {
               key_id: process.env.RAZORPAY_KEY_ID,
               key_secret: process.env.RAZORPAY_KEY_SECRET,
             });
-            await rzp.payments.refund(payment.transactionId, {
+            const rzpRefund = await rzp.payments.refund(payment.transactionId, {
               amount: Math.round(payment.amount * 100),
               notes: {
                 reason: `Full refund for cancelled event: ${event.eventName}`,
                 bookingId: booking._id.toString(),
               },
             });
+            if (rzpRefund && rzpRefund.id) {
+              gatewayRefundId = rzpRefund.id;
+              console.log(`[Razorpay Refund Succeeded]: Gateway ID ${rzpRefund.id} for payment ${payment.transactionId}`);
+            }
           } catch (rzpErr) {
-            console.warn(`[Razorpay Refund Notice]:`, rzpErr.message);
+            const description = rzpErr?.error?.description || rzpErr?.message || 'Gateway simulated / non-live ID';
+            console.warn(`[Razorpay Refund Notice]:`, description);
           }
         }
 
         payment.paymentStatus = 'REFUNDED';
-        payment.refundId = `rfnd_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        payment.refundId = gatewayRefundId || `rfnd_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
         payment.refundAmount = refundedAmount;
         payment.refundedAt = new Date();
         await payment.save();
