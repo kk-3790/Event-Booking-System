@@ -6,30 +6,47 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 
 export default function Login() {
-  // Default organizer credentials
-  const [form, setForm] = useState({
-    email: 'organizer@eventhub.com',
-    password: 'organizer123',
+  // Synchronously restore remembered credentials from localStorage
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('rememberMe') === 'true' || Boolean(localStorage.getItem('rememberedEmail'));
   });
-  const [rememberMe, setRememberMe] = useState(false);
+
+  const [form, setForm] = useState(() => {
+    const isRemembered = localStorage.getItem('rememberMe') === 'true' || Boolean(localStorage.getItem('rememberedEmail'));
+    const savedEmail = localStorage.getItem('rememberedEmail') || '';
+    const savedPassword = localStorage.getItem('rememberedPassword') || '';
+    if (isRemembered && savedEmail) {
+      return {
+        email: savedEmail,
+        password: savedPassword,
+      };
+    }
+    // Clean initial state for new users
+    return {
+      email: '',
+      password: '',
+    };
+  });
+
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Restore remembered email on initial load if previously saved
-  useEffect(() => {
-    const savedEmail = localStorage.getItem('rememberedEmail');
-    if (savedEmail) {
-      setForm((prev) => ({ ...prev, email: savedEmail, password: '' }));
-      setRememberMe(true);
-    }
-  }, []);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRememberMeChange = (e) => {
+    const isChecked = e.target.checked;
+    setRememberMe(isChecked);
+    if (!isChecked) {
+      localStorage.removeItem('rememberMe');
+      localStorage.removeItem('rememberedEmail');
+      localStorage.removeItem('rememberedPassword');
+    }
   };
 
   const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -46,11 +63,15 @@ export default function Login() {
 
     setLoading(true);
     try {
-      // Handle Remember Me persistence
+      // Handle Remember Me persistence for both email and password
       if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
         localStorage.setItem('rememberedEmail', emailTrimmed);
+        localStorage.setItem('rememberedPassword', form.password);
       } else {
+        localStorage.removeItem('rememberMe');
         localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPassword');
       }
 
       const user = await login({
@@ -149,7 +170,7 @@ export default function Login() {
                   id="rememberMe"
                   type="checkbox"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  onChange={handleRememberMeChange}
                   className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500/40 cursor-pointer accent-indigo-600"
                 />
                 <span>Remember me</span>
