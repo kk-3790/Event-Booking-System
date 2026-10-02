@@ -108,7 +108,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
       const checkedInTime = b.checkedInAt ? new Date(b.checkedInAt).toLocaleString('en-US') : '';
 
       return [
-        `#BKG-${b._id.slice(-6).toUpperCase()}`,
+        `#BKG-${(b._id || '').toString().slice(-6).toUpperCase()}`,
         `"${(u.name || 'Anonymous').replace(/"/g, '""')}"`,
         `"${(u.email || '').replace(/"/g, '""')}"`,
         `"${(u.mobile || '').replace(/"/g, '""')}"`,

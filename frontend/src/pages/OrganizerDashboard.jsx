@@ -440,6 +440,78 @@ export default function OrganizerDashboard() {
     }, 50);
   };
 
+  const handleExportReportCsv = () => {
+    if (!generatedReport) return;
+
+    let headers = [];
+    let rows = [];
+
+    if (reportType === 'bookings') {
+      headers = [
+        'Booking Reference',
+        'Event Name',
+        'Customer Name',
+        'Tickets Count',
+        'Status',
+        'Amount Paid (INR)',
+        'Booking Date'
+      ];
+      const bookings = generatedReport.bookings || [];
+      rows = bookings.map((b) => {
+        const u = b.user || {};
+        const eventName = b.event?.eventName || 'Event Experience';
+        const dateStr = b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN') : 'N/A';
+        return [
+          `#BKG-${(b.bookingId || b._id || '').toString().slice(-6).toUpperCase()}`,
+          `"${(eventName).replace(/"/g, '""')}"`,
+          `"${(u.name || b.customerName || 'Attendee').replace(/"/g, '""')}"`,
+          b.ticketsCount || b.ticketCount || 1,
+          b.status || b.bookingStatus || 'CONFIRMED',
+          b.totalPrice ?? b.totalAmount ?? 0,
+          `"${dateStr}"`
+        ];
+      });
+    } else {
+      headers = [
+        'Event ID',
+        'Event Name',
+        'Date',
+        'Venue',
+        'Status',
+        'Tickets Sold',
+        'Total Capacity',
+        'Total Revenue (INR)'
+      ];
+      const eventsList = generatedReport.events || [];
+      rows = eventsList.map((e) => {
+        const dateStr = e.date ? new Date(e.date).toLocaleDateString('en-IN') : 'N/A';
+        return [
+          `#EVT-${(e.eventId || e._id || '').toString().slice(-6).toUpperCase()}`,
+          `"${(e.eventName || 'Event Experience').replace(/"/g, '""')}"`,
+          `"${dateStr}"`,
+          `"${(e.venue || 'Venue TBD').replace(/"/g, '""')}"`,
+          e.status || 'ACTIVE',
+          e.ticketsSold || 0,
+          e.totalCapacity || e.seatsRemaining || 0,
+          e.totalRevenue ?? 0
+        ];
+      });
+    }
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    const cleanDate = new Date().toISOString().slice(0, 10);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Organizer_${reportType}_report_${cleanDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen pb-20 pt-8 px-4 lg:px-8 max-w-7xl mx-auto w-full space-y-8 print:min-h-0 print:p-0 print:m-0 print:space-y-0">
       
@@ -898,6 +970,15 @@ export default function OrganizerDashboard() {
                   >
                     <Download className="w-3.5 h-3.5 mr-1.5" />
                     <span>Download PDF</span>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleExportReportCsv}
+                    className="cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+                    <span>Export CSV</span>
                   </Button>
                   <Button
                     variant="secondary"
