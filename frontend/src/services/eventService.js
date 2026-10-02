@@ -1,6 +1,7 @@
 import api from './api';
 
 export const getAllEvents = () => api.get('/events');
+export const getOrganizerEvents = () => api.get('/events/organizer/my-events');
 export const getOngoingEvents = () => api.get('/events/ongoing');
 export const getEventById = (id) => api.get(`/events/${id}`);
 export const searchEvents = (params) => api.get('/events/search', { params });

@@ -90,12 +90,22 @@ export default function OrganizerDashboard() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await eventService.getAllEvents();
-      // Filter events created by the logged-in organizer (or all if admin)
-      const myEvents = data.filter(
-        (e) => user?.role === 'ADMIN' || e.organizer?._id === user?.id || e.organizer === user?.id
-      );
-      setEvents(myEvents);
+      // First try dedicated organizer endpoint that returns all statuses (ACTIVE, ONGOING, COMPLETED)
+      try {
+        const { data } = await eventService.getOrganizerEvents();
+        setEvents(Array.isArray(data) ? data : []);
+        return;
+      } catch {
+        // Fallback to getAllEvents with safe multi-id matching if needed
+        const { data } = await eventService.getAllEvents();
+        const currentUserId = String(user?.id || user?._id || '');
+        const myEvents = (Array.isArray(data) ? data : []).filter((e) => {
+          if (user?.role === 'ADMIN') return true;
+          const orgId = String(e.organizer?._id || e.organizer || '');
+          return currentUserId && orgId === currentUserId;
+        });
+        setEvents(myEvents);
+      }
     } catch {
       setError('Failed to fetch your events. Please refresh the page.');
     } finally {
@@ -218,6 +228,28 @@ export default function OrganizerDashboard() {
       setModalError('Event Date is required.');
       return;
     }
+
+    // Check past date and past time
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    if (formData.date < todayStr) {
+      setModalError('Event Date cannot be in the past. Please select today or a future date.');
+      return;
+    }
+
+    const currentHours = String(now.getHours()).padStart(2, '0');
+    const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+    const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+    if (formData.date === todayStr && formData.time <= currentTimeStr) {
+      setModalError(`Event Start Time (${formData.time}) has already passed today (current time is ${currentTimeStr}). Please select a future time.`);
+      return;
+    }
+
     if (formData.time >= formData.endTime) {
       setModalError('End Time must be later than Start Time.');
       return;
@@ -585,14 +617,6 @@ export default function OrganizerDashboard() {
                       >
                         <Users className="w-3.5 h-3.5" />
                       </button>
-                      <Link
-                        to={`/events/${event._id}`}
-                        target="_blank"
-                        className="inline-flex p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
-                        title="View Live Listing"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Link>
                       <button
                         onClick={() => openEditModal(event)}
                         className="inline-flex p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-300 transition cursor-pointer"
@@ -648,6 +672,8 @@ export default function OrganizerDashboard() {
               
               <Input
                 label="Event Name (Unique title)"
+                id="eventName"
+                name="eventName"
                 type="text"
                 placeholder="e.g. NextGen Web3 & AI Hackathon"
                 value={formData.eventName}
@@ -660,6 +686,8 @@ export default function OrganizerDashboard() {
                 <div className="space-y-1.5 text-left">
                   <label className="block text-xs font-semibold text-slate-300">Category</label>
                   <select
+                    id="category"
+                    name="category"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="block w-full rounded-xl bg-slate-950/80 border border-slate-800 py-2.5 px-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer"
@@ -672,6 +700,8 @@ export default function OrganizerDashboard() {
 
                 <Input
                   label="Venue / Hall Address"
+                  id="venue"
+                  name="venue"
                   type="text"
                   placeholder="e.g. Convention Hall B, SG Highway"
                   value={formData.venue}
@@ -684,7 +714,10 @@ export default function OrganizerDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Input
                   label="Date"
+                  id="date"
+                  name="date"
                   type="date"
+                  min={new Date().toISOString().slice(0, 10)}
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   required
@@ -692,6 +725,8 @@ export default function OrganizerDashboard() {
 
                 <Input
                   label="Start Time (HH:MM)"
+                  id="time"
+                  name="time"
                   type="time"
                   value={formData.time}
                   onChange={(e) => setFormData({ ...formData, time: e.target.value })}
@@ -700,6 +735,8 @@ export default function OrganizerDashboard() {
 
                 <Input
                   label="End Time (HH:MM)"
+                  id="endTime"
+                  name="endTime"
                   type="time"
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
@@ -822,6 +859,8 @@ export default function OrganizerDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                     <Input
                       label="Ticket Price (₹)"
+                      id="ticketPrice"
+                      name="ticketPrice"
                       type="number"
                       min="0"
                       placeholder="499"
@@ -832,6 +871,8 @@ export default function OrganizerDashboard() {
 
                     <Input
                       label="Available Seats (Inventory)"
+                      id="availableSeats"
+                      name="availableSeats"
                       type="number"
                       min="1"
                       placeholder="150"

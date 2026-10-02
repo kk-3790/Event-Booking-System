@@ -7,6 +7,7 @@ const {
   updateEvent,
   deleteEvent,
   getAllEvents,
+  getOrganizerEvents,
   getEventById,
   searchEvents,
 } = require('../controllers/eventController');
@@ -38,9 +39,10 @@ const upload = multer({
   },
 });
 
-// Public routes
+// Specific routes (MUST come before /:id so keywords are not parsed as ObjectIds)
 router.get('/', getAllEvents);
-router.get('/search', searchEvents); // must come before /:id so "search" isn't treated as an ID
+router.get('/search', searchEvents);
+router.get('/organizer/my-events', protect, authorizeRoles('ORGANIZER', 'ADMIN'), getOrganizerEvents);
 router.get('/:id', getEventById);
 
 // Protected routes (Organizer/Admin only)

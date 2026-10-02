@@ -59,6 +59,15 @@ export default function EventDetails() {
   const [promoError, setPromoError] = useState('');
   const [eventDraw, setEventDraw] = useState(null);
 
+  // Restrict ORGANIZER and ADMIN from accessing customer event booking page
+  useEffect(() => {
+    if (user?.role === 'ORGANIZER') {
+      navigate('/organizer/events', { replace: true });
+    } else if (user?.role === 'ADMIN') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, navigate]);
+
   useEffect(() => {
     if (bookingSuccess) {
       const existing = bookingSuccess.qrCode || activeBooking?.qrCode;
@@ -170,6 +179,10 @@ export default function EventDetails() {
     setIsPaymentOpen(false);
     setBookingSuccess({ ...activeBooking, bookingStatus: 'CONFIRMED' });
   };
+
+  if (user?.role === 'ORGANIZER' || user?.role === 'ADMIN') {
+    return null;
+  }
 
   if (loading) {
     return (

@@ -50,8 +50,16 @@ const createEvent = async (req, res) => {
     }
 
     const { combineDateAndTime } = require('../utils/eventTiming');
-    if (combineDateAndTime(date, endTime) <= combineDateAndTime(date, time)) {
+    const startDateTime = combineDateAndTime(date, time);
+    const endDateTime = combineDateAndTime(date, endTime);
+
+    if (endDateTime <= startDateTime) {
       return res.status(400).json({ message: 'endTime must be after time (start time)' });
+    }
+
+    const now = new Date();
+    if (startDateTime <= now) {
+      return res.status(400).json({ message: 'Event date and start time cannot be in the past. Please choose a future date and time.' });
     }
 
     // Event names must be unique across the entire platform, regardless of organizer
@@ -128,6 +136,23 @@ const updateEvent = async (req, res) => {
       }
     }
 
+    if (req.body.date || req.body.time || req.body.endTime) {
+      const { combineDateAndTime } = require('../utils/eventTiming');
+      const updatedDate = req.body.date || event.date;
+      const updatedTime = req.body.time || event.time;
+      const updatedEndTime = req.body.endTime || event.endTime;
+      const startDateTime = combineDateAndTime(updatedDate, updatedTime);
+      const endDateTime = combineDateAndTime(updatedDate, updatedEndTime);
+
+      if (endDateTime <= startDateTime) {
+        return res.status(400).json({ message: 'endTime must be after time (start time)' });
+      }
+
+      if (event.status === 'ACTIVE' && startDateTime <= new Date()) {
+        return res.status(400).json({ message: 'Event date and start time cannot be in the past for an active event.' });
+      }
+    }
+
     const allowedFields = [
       'eventName',
       'category',
@@ -201,6 +226,21 @@ const getAllEvents = async (req, res) => {
   }
 };
 
+// GET /api/events/organizer/my-events  (Organizer or Admin only)
+// Fetches ALL events (ACTIVE, ONGOING, COMPLETED, CANCELLED) belonging to the organizer
+const getOrganizerEvents = async (req, res) => {
+  try {
+    await syncEventStatuses();
+    const query = req.user.role === 'ADMIN' ? {} : { organizer: req.user.id };
+    const events = await Event.find(query)
+      .populate('organizer', 'name email role')
+      .sort({ createdAt: -1 });
+    res.status(200).json(events);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch organizer events', error: err.message });
+  }
+};
+
 // Get single event by ID
 // GET /api/events/:id  (public)
 const getEventById = async (req, res) => {
@@ -263,6 +303,7 @@ module.exports = {
   updateEvent,
   deleteEvent,
   getAllEvents,
+  getOrganizerEvents,
   getEventById,
   getOngoingEvents,
   searchEvents,

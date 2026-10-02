@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import * as eventService from '../services/eventService';
 import { 
   Search, 
@@ -61,6 +62,18 @@ const categoryStyles = {
 const CATEGORIES = ['All', 'Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
 
 export default function EventList() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // If logged in as Organizer or Admin, redirect away from customer Browse Events to their dedicated hub
+  useEffect(() => {
+    if (user?.role === 'ORGANIZER') {
+      navigate('/organizer/events', { replace: true });
+    } else if (user?.role === 'ADMIN') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, navigate]);
+
   const [allEvents, setAllEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

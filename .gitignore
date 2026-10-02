@@ -10,3 +10,5 @@ backend/.env
 frontend/.env
 *.log
 .DS_Store
+.archify/
+frontend/screenshots/

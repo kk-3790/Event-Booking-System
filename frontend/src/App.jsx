@@ -8,6 +8,8 @@ import EventDetails from './pages/EventDetails';
 import MyBookings from './pages/MyBookings';
 import OrganizerDashboard from './pages/OrganizerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import NotFound from './pages/NotFound';
+import AccessDenied from './pages/AccessDenied';
 
 function App() {
   return (
@@ -42,6 +44,8 @@ function App() {
         />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/unauthorized" element={<AccessDenied />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

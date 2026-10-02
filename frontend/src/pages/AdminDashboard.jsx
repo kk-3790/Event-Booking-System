@@ -670,10 +670,7 @@ export default function AdminDashboard() {
                 {events.map((e) => (
                   <tr key={e._id} className="hover:bg-slate-800/30 transition-colors">
                     <td className="p-3.5 font-bold text-white max-w-[200px] truncate">
-                      <Link to={`/events/${e._id}`} target="_blank" className="hover:text-indigo-300 flex items-center gap-1">
-                        <span>{e.eventName}</span>
-                        <ExternalLink className="w-3 h-3 text-slate-500" />
-                      </Link>
+                      <span>{e.eventName}</span>
                     </td>
                     <td className="p-3.5">
                       <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">

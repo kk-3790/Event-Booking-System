@@ -6,7 +6,11 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 
 export default function Login() {
-  const [form, setForm] = useState({ email: '', password: '' });
+  // Default organizer credentials
+  const [form, setForm] = useState({
+    email: 'organizer@eventhub.com',
+    password: 'organizer123',
+  });
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -14,16 +18,19 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Restore remembered email on initial load
+  // Restore remembered email on initial load if previously saved
   useEffect(() => {
     const savedEmail = localStorage.getItem('rememberedEmail');
     if (savedEmail) {
-      setForm((prev) => ({ ...prev, email: savedEmail }));
+      setForm((prev) => ({ ...prev, email: savedEmail, password: '' }));
       setRememberMe(true);
     }
   }, []);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -160,6 +167,7 @@ export default function Login() {
                 type="button"
                 onClick={() => setForm({ email: 'organizer@eventhub.com', password: 'organizer123' })}
                 className="px-2 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition cursor-pointer text-center"
+                title="organizer@eventhub.com / organizer123"
               >
                 🏢 Organizer
               </button>
@@ -167,6 +175,7 @@ export default function Login() {
                 type="button"
                 onClick={() => setForm({ email: 'admin@eventhub.com', password: 'admin123' })}
                 className="px-2 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[11px] font-semibold transition cursor-pointer text-center"
+                title="admin@eventhub.com / admin123"
               >
                 🛡️ Admin
               </button>
@@ -174,8 +183,19 @@ export default function Login() {
                 type="button"
                 onClick={() => setForm({ email: 'customer@eventhub.com', password: 'customer123' })}
                 className="px-2 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold transition cursor-pointer text-center"
+                title="customer@eventhub.com / customer123"
               >
                 🎟️ Customer
+              </button>
+            </div>
+            <div className="flex justify-center gap-2 pt-1 text-[11px] text-slate-400">
+              <span>Or:</span>
+              <button
+                type="button"
+                onClick={() => setForm({ email: 'krish@test.com', password: 'Password@123' })}
+                className="underline hover:text-indigo-400 transition cursor-pointer"
+              >
+                krish@test.com / Password@123
               </button>
             </div>
           </div>

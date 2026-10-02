@@ -29,7 +29,10 @@ export default function Navbar() {
         
         {/* Brand Logo & Main Nav */}
         <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-2.5 group">
+          <Link
+            to={user?.role === 'ORGANIZER' ? '/organizer/events' : user?.role === 'ADMIN' ? '/admin' : '/'}
+            className="flex items-center gap-2.5 group"
+          >
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 group-hover:scale-105 transition-transform">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
@@ -39,14 +42,16 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center gap-5 text-sm font-medium">
-            <Link
-              to="/"
-              className={`transition-colors py-1 ${
-                isActive('/') ? 'text-white font-semibold' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Browse Events
-            </Link>
+            {(!user || user?.role === 'CUSTOMER') && (
+              <Link
+                to="/"
+                className={`transition-colors py-1 ${
+                  isActive('/') ? 'text-white font-semibold' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Browse Events
+              </Link>
+            )}
 
             {user?.role === 'CUSTOMER' && (
               <Link

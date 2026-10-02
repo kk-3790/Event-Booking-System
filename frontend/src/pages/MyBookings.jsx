@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as bookingService from '../services/bookingService';
 import * as paymentService from '../services/paymentService';
 import { useAuth } from '../context/AuthContext';
@@ -75,9 +75,23 @@ function ExpiryCountdown({ expiresAt }) {
 export default function MyBookings() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Restrict ORGANIZER and ADMIN from accessing customer bookings page
+  useEffect(() => {
+    if (user?.role === 'ORGANIZER') {
+      navigate('/organizer/events', { replace: true });
+    } else if (user?.role === 'ADMIN') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, navigate]);
+
+  if (user?.role === 'ORGANIZER' || user?.role === 'ADMIN') {
+    return null;
+  }
   
   // Filter tab: 'ALL' | 'CONFIRMED' | 'PENDING' | 'CANCELLED'
   const [statusFilter, setStatusFilter] = useState('ALL');
