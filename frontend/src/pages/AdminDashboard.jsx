@@ -368,78 +368,43 @@ export default function AdminDashboard() {
 
       {/* ================= TAB 1: OVERVIEW ================= */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          <div className="lg:col-span-8 p-6 rounded-3xl bg-slate-900/60 border border-slate-800 glass-card space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-indigo-400" />
-              <span>Platform Activity Summary</span>
-            </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              The EventHub platform is operating smoothly with real-time seat locks and automated booking expiry. 
-              Below is an audit snapshot of your live MongoDB records.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
-                <span className="text-[11px] text-slate-400 block">Active Event Ratio</span>
-                <span className="text-xl font-bold text-white mt-1 block">
-                  {stats?.totalEvents ? Math.round(((stats.activeEvents || 0) / stats.totalEvents) * 100) : 100}%
-                </span>
-                <span className="text-[10px] text-emerald-400 font-medium">100% available to browse</span>
+        <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 glass-card space-y-4">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <Shield className="w-4 h-4 text-amber-400" />
+            <span>Quick Controls</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <button
+              onClick={() => setActiveTab('users')}
+              className="p-4 rounded-2xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition flex items-center justify-between cursor-pointer"
+            >
+              <div>
+                <span className="font-semibold text-white block">View Registered Users</span>
+                <span className="text-[11px] text-slate-400">Moderation and account status</span>
               </div>
-
-              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
-                <span className="text-[11px] text-slate-400 block">Customer-to-Organizer</span>
-                <span className="text-xl font-bold text-white mt-1 block">
-                  {stats?.totalCustomers || 0} : {stats?.totalOrganizers || 0}
-                </span>
-                <span className="text-[10px] text-indigo-400 font-medium">Healthy ecosystem</span>
+              <span className="font-bold text-indigo-400 text-sm">{users.length} →</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('bookings')}
+              className="p-4 rounded-2xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition flex items-center justify-between cursor-pointer"
+            >
+              <div>
+                <span className="font-semibold text-white block">Manage Ticket Bookings</span>
+                <span className="text-[11px] text-slate-400">Ledgers and payment status</span>
               </div>
-
-              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
-                <span className="text-[11px] text-slate-400 block">Background Services</span>
-                <span className="text-xl font-bold text-emerald-400 mt-1 block">Healthy</span>
-                <span className="text-[10px] text-slate-500">Cron jobs executing</span>
+              <span className="font-bold text-emerald-400 text-sm">{bookings.length} →</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('events')}
+              className="p-4 rounded-2xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition flex items-center justify-between cursor-pointer"
+            >
+              <div>
+                <span className="font-semibold text-white block">Manage Published Events</span>
+                <span className="text-[11px] text-slate-400">Cross-tenant listings and capacity</span>
               </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-slate-400">Database connected at: <code className="text-indigo-300">mongodb://127.0.0.1:27017</code></span>
-              <span className="text-slate-500">Backend Port: 5001</span>
-            </div>
+              <span className="font-bold text-purple-400 text-sm">{events.length} →</span>
+            </button>
           </div>
-
-          <div className="lg:col-span-4 p-6 rounded-3xl bg-slate-900/60 border border-slate-800 glass-card space-y-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Shield className="w-4 h-4 text-amber-400" />
-              <span>Quick Controls</span>
-            </h3>
-            <div className="space-y-2 text-xs">
-              <button
-                onClick={() => setActiveTab('users')}
-                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between"
-              >
-                <span>View Registered Users</span>
-                <span className="font-bold text-indigo-400">{users.length} →</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('bookings')}
-                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between"
-              >
-                <span>Manage Ticket Bookings</span>
-                <span className="font-bold text-emerald-400">{bookings.length} →</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('events')}
-                className="w-full p-3 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition flex items-center justify-between"
-              >
-                <span>Manage Published Events</span>
-                <span className="font-bold text-purple-400">{events.length} →</span>
-              </button>
-            </div>
-          </div>
-
         </div>
       )}
 
