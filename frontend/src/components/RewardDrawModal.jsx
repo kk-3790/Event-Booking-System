@@ -208,7 +208,7 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Discount (%)</label>
+                <label className="text-xs font-semibold text-slate-300">Winner Voucher Discount (%)</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -221,8 +221,8 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                   />
                   <Percent className="w-3.5 h-3.5 text-slate-500 absolute right-3 top-2.5" />
                 </div>
-                <span className="text-[10px] text-slate-500">
-                  Promo Seat Price: <strong className="text-indigo-400">₹{promoPrice}</strong> (was ₹{event.ticketPrice})
+                <span className="text-[10px] text-slate-400">
+                  Winner voucher reward: <strong className="text-amber-400">{discountPercentage}% OFF</strong> next event booking
                 </span>
               </div>
 

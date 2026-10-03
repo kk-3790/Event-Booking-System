@@ -183,6 +183,19 @@ const verifyPayment = async (req, res) => {
       amount: payment.amount,
     });
 
+    // Ensure participant enrolled in Lucky Draw if promotional
+    if (payment.booking.isPromotional) {
+      try {
+        const RewardDraw = require('../models/RewardDraw');
+        await RewardDraw.findOneAndUpdate(
+          { event: payment.booking.event, drawStatus: 'OPEN' },
+          { $addToSet: { participants: req.user.id } }
+        );
+      } catch (e) {
+        console.error('Payment verification: Lucky draw enrollment error:', e.message);
+      }
+    }
+
     // Dispatch booking confirmation notification & email
     const { sendEmailNotification } = require('../services/notificationService');
     const confirmedBooking = await Booking.findById(payment.booking._id).populate('user').populate('event');

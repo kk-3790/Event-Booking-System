@@ -125,22 +125,15 @@ const bookTicket = async (req, res) => {
       if (cleanPromo && STATIC_PROMOS[cleanPromo]) {
         const discount = STATIC_PROMOS[cleanPromo];
         unitPrice = Math.round(baseTicketPrice * (1 - discount / 100));
-      } else if (isPromotional || cleanPromo) {
-        try {
-          const RewardDraw = require('../models/RewardDraw');
-          const draw = await RewardDraw.findOne({ event: eventId, drawStatus: 'OPEN' });
-          if (draw && draw.promoTicketPrice && !selectedTier) {
-            unitPrice = draw.promoTicketPrice;
-          } else if (draw && draw.discountPercentage) {
-            unitPrice = Math.round(baseTicketPrice * (1 - draw.discountPercentage / 100));
-          } else {
-            unitPrice = Math.round(baseTicketPrice * 0.8);
-          }
-        } catch (err) {
-          unitPrice = Math.round(baseTicketPrice * 0.8);
-        }
       }
     }
+
+    const isEnrolledInDraw = Boolean(
+      isPromotional ||
+      cleanPromo === 'LUCKYDRAW' ||
+      cleanPromo === 'LUCKY' ||
+      cleanPromo === 'DRAW'
+    );
 
     const subtotal = ticketCount * unitPrice;
     const platformFee = Math.round(subtotal * 0.05);
@@ -171,7 +164,7 @@ const bookTicket = async (req, res) => {
       totalAmount,
       bookingStatus: 'PENDING', // becomes CONFIRMED once payment succeeds
       expiresAt,
-      isPromotional: Boolean(isPromotional || cleanPromo),
+      isPromotional: isEnrolledInDraw,
       qrCode,
     });
 
@@ -182,7 +175,7 @@ const bookTicket = async (req, res) => {
       await appliedVoucher.save();
     }
 
-    if (isPromotional) {
+    if (isEnrolledInDraw) {
       const RewardDraw = require('../models/RewardDraw');
       await RewardDraw.findOneAndUpdate(
         { event: eventId, drawStatus: 'OPEN' },

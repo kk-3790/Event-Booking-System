@@ -483,14 +483,26 @@ export default function EventDetails() {
               </label>
 
               {appliedPromo ? (
-                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-xs space-y-2">
+                <div className={`p-3.5 rounded-2xl ${appliedPromo.isContestEntry ? 'bg-amber-500/10 border-amber-500/30' : 'bg-emerald-500/10 border-emerald-500/25'} border text-xs space-y-2`}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span className="font-bold text-emerald-300 font-mono text-sm">{appliedPromo.code}</span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        {appliedPromo.discountPercentage}% OFF
+                      {appliedPromo.isContestEntry ? (
+                        <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                      ) : (
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      )}
+                      <span className={`font-bold font-mono text-sm ${appliedPromo.isContestEntry ? 'text-amber-300' : 'text-emerald-300'}`}>
+                        {appliedPromo.code}
                       </span>
+                      {appliedPromo.isContestEntry ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          CONTEST ENTRY
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          {appliedPromo.discountPercentage}% OFF
+                        </span>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -501,10 +513,13 @@ export default function EventDetails() {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-300">{appliedPromo.description}</p>
-                  {appliedPromo.code === 'LUCKYDRAW' && (
-                    <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-200 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span><strong>Enrolled in Lucky Draw!</strong> You will enter the contest upon booking.</span>
+                  {(appliedPromo.isContestEntry || appliedPromo.code === 'LUCKYDRAW') && (
+                    <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-200 flex items-start gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block text-amber-300 font-semibold">Enrolled in Lucky Draw Contest!</strong>
+                        <span>Current pass is charged at regular price. If selected in the host draw, you will win a <strong>{appliedPromo.nextBookingDiscount || eventDraw?.discountPercentage}% OFF voucher</strong> for your next booking with this host!</span>
+                      </div>
                     </div>
                   )}
                   {appliedPromo.code === 'EARLYBIRD' && (
@@ -568,7 +583,7 @@ export default function EventDetails() {
                             <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                             <div>
                               <span className="font-bold text-amber-300 block">LUCKYDRAW</span>
-                              <span className="text-[10px] text-slate-400">{eventDraw.discountPercentage}% Off + Lucky Draw Contest</span>
+                              <span className="text-[10px] text-slate-400">Contest Entry • Win {eventDraw.discountPercentage}% Off Next Booking</span>
                             </div>
                           </div>
                           <span className="text-[11px] font-bold text-amber-400 group-hover:underline">Apply</span>
@@ -627,6 +642,15 @@ export default function EventDetails() {
                     <span>Promotional Discount</span>
                   </span>
                   <span className="font-bold">-₹{discountSavings.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {appliedPromo?.isContestEntry && (
+                <div className="flex justify-between text-amber-300 text-[11px] py-0.5">
+                  <span className="flex items-center gap-1 text-slate-300">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Lucky Draw Contest</span>
+                  </span>
+                  <span className="font-semibold text-amber-300">Enrolled (Win {appliedPromo.nextBookingDiscount}% Off Next)</span>
                 </div>
               )}
               <div className="flex justify-between">

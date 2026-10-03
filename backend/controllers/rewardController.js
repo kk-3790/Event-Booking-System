@@ -330,11 +330,13 @@ const applyPromoCode = async (req, res) => {
     if (draw && (cleanCode === 'LUCKYDRAW' || cleanCode === 'LUCKY' || cleanCode === 'DRAW')) {
       return res.status(200).json({
         valid: true,
-        code: cleanCode,
-        discountPercentage: draw.discountPercentage,
-        discountedPrice: draw.promoTicketPrice,
+        code: 'LUCKYDRAW',
+        discountPercentage: 0, // Contest entry: No instant discount on current ticket
+        discountedPrice: event.ticketPrice,
         isPromotional: true,
-        description: `Official ${draw.discountPercentage}% Event Lucky Draw Entry`,
+        isContestEntry: true,
+        nextBookingDiscount: draw.discountPercentage,
+        description: `Lucky Draw Contest Entry: Chance to win ${draw.discountPercentage}% OFF your next booking with this host!`,
       });
     }
 
