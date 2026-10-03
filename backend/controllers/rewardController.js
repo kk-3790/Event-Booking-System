@@ -167,12 +167,10 @@ const executeDraw = async (req, res) => {
       });
     }
 
-    // Prevent executing lucky draws for completed events
-    const { computeLiveStatus } = require('../utils/eventTiming');
-    const liveStatus = computeLiveStatus(draw.event);
-    if (draw.event.status === 'COMPLETED' || liveStatus === 'COMPLETED') {
+    // Prevent executing lucky draws for cancelled events
+    if (draw.event.status === 'CANCELLED' || draw.event.status === 'DELETED') {
       return res.status(400).json({
-        message: 'This event has concluded. Lucky draws cannot be conducted after an event is completed. You can only view the winners list.',
+        message: 'Cannot execute lucky draw for a cancelled event.',
       });
     }
 
