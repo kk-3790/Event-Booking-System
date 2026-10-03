@@ -62,10 +62,26 @@ const createEvent = async (req, res) => {
       return res.status(400).json({ message: 'Event date and start time cannot be in the past. Please choose a future date and time.' });
     }
 
-    // Event names must be unique across the entire platform, regardless of organizer
-    const duplicateEvent = await Event.findOne({ eventName: eventName.trim() });
-    if (duplicateEvent) {
-      return res.status(409).json({ message: 'An event with this name already exists. Please choose a different name.' });
+    // Check if the same organizer already has an active or ongoing event with this name
+    // Completed, cancelled, and deleted events do NOT block new events, and different organizers are never blocked.
+    const existingEvents = await Event.find({
+      eventName: eventName.trim(),
+      organizer: req.user.id,
+      status: { $in: ['ACTIVE', 'ONGOING'] },
+    });
+
+    const activeConflict = existingEvents.find((ev) => {
+      const liveStatus = computeLiveStatus(ev);
+      if (liveStatus === 'COMPLETED' && ev.status !== 'COMPLETED') {
+        ev.status = 'COMPLETED';
+        ev.save().catch(() => {});
+        return false;
+      }
+      return liveStatus === 'ACTIVE' || liveStatus === 'ONGOING';
+    });
+
+    if (activeConflict) {
+      return res.status(409).json({ message: 'An active event with this name already exists in your events. Please choose a different name.' });
     }
 
     let formattedTiers = [];
@@ -105,7 +121,7 @@ const createEvent = async (req, res) => {
     res.status(201).json({ message: 'Event added successfully', event });
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ message: 'An event with this name already exists. Please choose a different name.' });
+      return res.status(409).json({ message: 'An active event with this name already exists in your events. Please choose a different name.' });
     }
     res.status(500).json({ message: 'Failed to create event', error: err.message });
   }
@@ -130,14 +146,27 @@ const updateEvent = async (req, res) => {
       return res.status(400).json({ message: 'This event has been cancelled and cannot be edited.' });
     }
 
-    // If eventName is being changed, make sure it's not already taken by another event
+    // If eventName is being changed, make sure it's not already taken by another active event for this organizer
     if (req.body.eventName && req.body.eventName.trim() !== event.eventName) {
-      const duplicateEvent = await Event.findOne({
+      const existingEvents = await Event.find({
         eventName: req.body.eventName.trim(),
+        organizer: event.organizer,
+        status: { $in: ['ACTIVE', 'ONGOING'] },
         _id: { $ne: event._id },
       });
-      if (duplicateEvent) {
-        return res.status(409).json({ message: 'An event with this name already exists. Please choose a different name.' });
+
+      const activeConflict = existingEvents.find((ev) => {
+        const liveStatus = computeLiveStatus(ev);
+        if (liveStatus === 'COMPLETED' && ev.status !== 'COMPLETED') {
+          ev.status = 'COMPLETED';
+          ev.save().catch(() => {});
+          return false;
+        }
+        return liveStatus === 'ACTIVE' || liveStatus === 'ONGOING';
+      });
+
+      if (activeConflict) {
+        return res.status(409).json({ message: 'An active event with this name already exists in your events. Please choose a different name.' });
       }
     }
 
@@ -193,7 +222,7 @@ const updateEvent = async (req, res) => {
     res.status(200).json({ message: 'Event updated successfully', event });
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(409).json({ message: 'An event with this name already exists. Please choose a different name.' });
+      return res.status(409).json({ message: 'An active event with this name already exists in your events. Please choose a different name.' });
     }
     res.status(500).json({ message: 'Failed to update event', error: err.message });
   }
