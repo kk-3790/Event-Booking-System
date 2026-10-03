@@ -51,6 +51,36 @@ export const launchRazorpayCheckout = async ({
         theme: {
           color: '#6366f1',
         },
+        config: {
+          display: {
+            blocks: {
+              cards: {
+                name: 'Debit & Credit Cards',
+                instruments: [{ method: 'card' }],
+              },
+              netbanking: {
+                name: 'Net Banking',
+                instruments: [{ method: 'netbanking' }],
+              },
+              wallets: {
+                name: 'Digital Wallets',
+                instruments: [{ method: 'wallet' }],
+              },
+            },
+            sequence: ['block.cards', 'block.netbanking', 'block.wallets'],
+            preferences: {
+              show_default_blocks: false,
+            },
+          },
+        },
+        method: {
+          card: true,
+          netbanking: true,
+          wallet: true,
+          upi: false,
+          emi: false,
+          paylater: false,
+        },
         modal: {
           ondismiss: () => {
             console.log('[Razorpay SDK] Checkout modal dismissed by user');

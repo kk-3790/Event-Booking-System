@@ -312,20 +312,24 @@ export default function PaymentModal({ isOpen, onClose, booking, onPaymentSucces
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        UPI Apps, Debit / Credit Cards, Net Banking & Wallets
+                        Debit & Credit Cards, Net Banking & Wallets Only
                       </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Accepted Payment Badges */}
-                <div className="p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="text-[11px] font-semibold text-slate-400">Accepted Payment Methods:</span>
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                  <span className="text-[11px] font-semibold text-slate-400">Accepted Payment Channels:</span>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {['Google Pay', 'PhonePe', 'Paytm', 'UPI', 'Visa', 'MasterCard', 'RuPay', 'Net Banking'].map((m) => (
+                    {[
+                      'Cards (Visa · MasterCard · RuPay)',
+                      'Net Banking',
+                      'Wallets'
+                    ].map((m) => (
                       <span
                         key={m}
-                        className="px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 text-[10px] font-semibold border border-slate-800"
+                        className="px-2.5 py-1 rounded-lg bg-slate-900 text-indigo-300 text-[11px] font-medium border border-slate-800"
                       >
                         {m}
                       </span>
