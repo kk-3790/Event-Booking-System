@@ -53,8 +53,27 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
     fetchDraw();
   }, [event._id]);
 
+  const isCancelled = event.status === 'CANCELLED' || event.status === 'DELETED';
+  const isPastEndTime = () => {
+    if (!event.date) return false;
+    try {
+      const d = new Date(event.date);
+      const [h, m] = (event.endTime || event.time || '23:59').split(':').map(Number);
+      d.setHours(h || 0, m || 0, 0, 0);
+      return new Date() > d;
+    } catch {
+      return false;
+    }
+  };
+  const isEventCompleted = event.status === 'COMPLETED' || (!isCancelled && isPastEndTime());
+  const isCompleted = drawData?.drawStatus === 'COMPLETED';
+
   const handleSaveConfig = async (e) => {
     e.preventDefault();
+    if (isEventCompleted) {
+      setError('Campaign settings cannot be modified because this event has concluded.');
+      return;
+    }
     setSaving(true);
     setError('');
     setActionSuccess('');
@@ -74,6 +93,10 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
 
   const handleRunDraw = async () => {
     if (!drawData) return;
+    if (isEventCompleted) {
+      setError('Lucky draws cannot be conducted after an event has concluded. You can only check the list of winners.');
+      return;
+    }
     setExecuting(true);
     setError('');
     setActionSuccess('');
@@ -92,7 +115,6 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
   const promoPrice = Math.round((event.ticketPrice || 0) * (1 - discountPercentage / 100));
   const participantsCount = drawData?.participants?.length || 0;
   const winnersCount = drawData?.winners?.length || 0;
-  const isCompleted = drawData?.drawStatus === 'COMPLETED';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -105,7 +127,9 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
               <Gift className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Lucky Discount & Reward Draw</h3>
+              <h3 className="text-base font-bold text-white">
+                {isEventCompleted && isCompleted ? 'Lucky Draw Winners Checklist' : isEventCompleted ? 'Lucky Draw Campaign (Concluded)' : 'Lucky Discount & Reward Draw'}
+              </h3>
               <p className="text-xs text-slate-400 truncate max-w-xs">{event.eventName}</p>
             </div>
           </div>
@@ -135,6 +159,16 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
             </div>
           )}
 
+          {isEventCompleted && (
+            <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+                <span><strong>Event Concluded:</strong> Lucky draws cannot be conducted after event completion. Viewing official winners checklist only.</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] font-bold text-slate-300 shrink-0">Review Only</span>
+            </div>
+          )}
+
           {/* Quick Metrics */}
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-center">
@@ -142,9 +176,11 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
               <span className={`text-xs font-bold mt-1 inline-block px-2 py-0.5 rounded-full ${
                 isCompleted 
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
+                  : isEventCompleted
+                  ? 'bg-slate-700/40 text-slate-400 border border-slate-600/30'
                   : drawData ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
               }`}>
-                {drawData?.drawStatus || 'NOT CONFIGURED'}
+                {isCompleted ? 'DRAW CONCLUDED' : isEventCompleted ? 'CAMPAIGN CLOSED' : (drawData?.drawStatus || 'NOT CONFIGURED')}
               </span>
             </div>
 
@@ -174,7 +210,7 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                     type="number"
                     min="1"
                     max="90"
-                    disabled={isCompleted}
+                    disabled={isCompleted || isEventCompleted}
                     value={discountPercentage}
                     onChange={(e) => setDiscountPercentage(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-50"
@@ -193,7 +229,7 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                     type="number"
                     min="1"
                     max="100"
-                    disabled={isCompleted}
+                    disabled={isCompleted || isEventCompleted}
                     value={numberOfWinners}
                     onChange={(e) => setNumberOfWinners(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-50"
@@ -205,7 +241,12 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
             </div>
 
             <div className="pt-2 flex justify-end">
-              {isCompleted ? (
+              {isEventCompleted ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/40 text-slate-400 text-xs font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Campaign Locked (Event Concluded)</span>
+                </div>
+              ) : isCompleted ? (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
                   <span>Campaign Finalized & Settings Locked</span>
@@ -223,17 +264,21 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
             <div className={`p-4 rounded-2xl border space-y-3 ${
               isCompleted 
                 ? 'bg-purple-500/10 border-purple-500/30' 
+                : isEventCompleted
+                ? 'bg-slate-950/80 border-slate-800'
                 : 'bg-amber-500/5 border-amber-500/20'
             }`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h5 className={`text-xs font-bold flex items-center gap-1.5 ${isCompleted ? 'text-purple-300' : 'text-amber-300'}`}>
+                  <h5 className={`text-xs font-bold flex items-center gap-1.5 ${isCompleted ? 'text-purple-300' : isEventCompleted ? 'text-slate-300' : 'text-amber-300'}`}>
                     <Trophy className="w-4 h-4 shrink-0" />
-                    <span>{isCompleted ? 'Lucky Draw Finalized & Concluded' : 'Conduct Random Winner Draw'}</span>
+                    <span>{isCompleted ? 'Official Winners Checklist' : isEventCompleted ? 'Lucky Draw Closed Without Execution' : 'Conduct Random Winner Draw'}</span>
                   </h5>
                   <p className="text-[11px] text-slate-300 mt-0.5">
                     {isCompleted
-                      ? `Official draw complete. ${winnersCount} lucky winners were chosen and awarded vouchers. Re-drawing is disabled.`
+                      ? `Event concluded. Below is the verified checklist of ${winnersCount} lucky winners and their next-booking discount vouchers.`
+                      : isEventCompleted
+                      ? 'This event has concluded. Lucky draws cannot be conducted after an event is completed.'
                       : `Picks ${numberOfWinners} lucky winners from ${participantsCount} enrolled ticket buyers and sends in-app notifications.`}
                   </p>
                 </div>
@@ -242,6 +287,11 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                   <div className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-500/20 text-purple-200 border border-purple-500/40 text-xs font-bold shadow-sm">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     <span>Official Draw Closed</span>
+                  </div>
+                ) : isEventCompleted ? (
+                  <div className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 text-slate-400 border border-slate-700 text-xs font-bold shadow-sm">
+                    <AlertCircle className="w-4 h-4 text-slate-500" />
+                    <span>Draw Inactive</span>
                   </div>
                 ) : (
                   <Button
@@ -308,6 +358,16 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {!drawData && isEventCompleted && (
+            <div className="p-6 rounded-2xl bg-slate-950/70 border border-slate-800 text-center space-y-2">
+              <Trophy className="w-8 h-8 text-slate-500 mx-auto" />
+              <h5 className="text-xs font-bold text-slate-300">No Lucky Draw Configured</h5>
+              <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                This event has already completed. Lucky draws can only be configured and conducted while an event is active or ongoing.
+              </p>
             </div>
           )}
 

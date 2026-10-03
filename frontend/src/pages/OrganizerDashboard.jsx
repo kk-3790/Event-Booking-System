@@ -73,6 +73,7 @@ export default function OrganizerDashboard() {
   const [reportType, setReportType] = useState('bookings');
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
+  const [reportAllTime, setReportAllTime] = useState(false);
   const [reportError, setReportError] = useState('');
 
   // Search & Filter within organizer listings
@@ -400,12 +401,26 @@ export default function OrganizerDashboard() {
 
   // Generate Regulatory & Revenue Report for Organizer
   const handleGenerateReport = async () => {
-    setReportLoading(true);
     setReportError('');
+
+    if (!reportAllTime) {
+      if (!reportStartDate || !reportEndDate) {
+        setReportError('Please select both a starting date and ending date, or check "Whole Time" for an all-time audit.');
+        return;
+      }
+      if (new Date(reportEndDate) < new Date(reportStartDate)) {
+        setReportError('Ending date cannot be earlier than starting date.');
+        return;
+      }
+    }
+
+    setReportLoading(true);
     try {
       const params = {};
-      if (reportStartDate) params.startDate = reportStartDate;
-      if (reportEndDate) params.endDate = reportEndDate;
+      if (!reportAllTime) {
+        if (reportStartDate) params.startDate = reportStartDate;
+        if (reportEndDate) params.endDate = reportEndDate;
+      }
 
       let res;
       if (reportType === 'bookings') {
@@ -646,10 +661,7 @@ export default function OrganizerDashboard() {
         </button>
 
         <button
-          onClick={() => {
-            setActiveTab('reports');
-            if (!generatedReport) handleGenerateReport();
-          }}
+          onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
             activeTab === 'reports'
               ? 'bg-purple-600 text-white shadow-sm'
@@ -854,7 +866,7 @@ export default function OrganizerDashboard() {
                           <button
                             onClick={() => setRewardDrawEvent(event)}
                             className="inline-flex p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition cursor-pointer"
-                            title="Configure Lucky Draw & Promotional Discount"
+                            title={isCompleted ? "View Lucky Draw Winners Checklist" : "Configure Lucky Draw & Promotional Discount"}
                           >
                             <Gift className="w-3.5 h-3.5" />
                           </button>
@@ -922,13 +934,34 @@ export default function OrganizerDashboard() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-slate-800/80">
+              <span className="text-xs font-semibold text-slate-300">Audit Period Filter</span>
+              <label className="inline-flex items-center gap-2 cursor-pointer text-xs select-none bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition">
+                <input
+                  type="checkbox"
+                  checked={reportAllTime}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setReportAllTime(checked);
+                    if (checked) {
+                      setReportError('');
+                    }
+                  }}
+                  className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-purple-600 focus:ring-purple-500 focus:ring-offset-slate-950 cursor-pointer"
+                />
+                <span className={reportAllTime ? "text-purple-300 font-bold" : "text-slate-400 font-medium"}>
+                  Whole Time (All-Time Audit)
+                </span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
               <div className="sm:col-span-4">
                 <label className="text-xs font-semibold text-slate-300 block mb-1">Report Target</label>
                 <select
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
                 >
                   <option value="bookings">Booking Transactions & Revenue</option>
                   <option value="events">Event Performance & Capacities</option>
@@ -936,23 +969,49 @@ export default function OrganizerDashboard() {
               </div>
 
               <div className="sm:col-span-3">
-                <label className="text-xs font-semibold text-slate-300 block mb-1">From Date</label>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  From Date {!reportAllTime && <span className="text-rose-400 font-bold">*</span>}
+                </label>
                 <input
                   type="date"
-                  value={reportStartDate}
-                  onChange={(e) => setReportStartDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  disabled={reportAllTime}
+                  value={reportAllTime ? '' : reportStartDate}
+                  onChange={(e) => {
+                    setReportStartDate(e.target.value);
+                    if (reportError) setReportError('');
+                  }}
+                  className={`w-full bg-slate-950 border rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition ${
+                    reportAllTime
+                      ? 'opacity-40 border-slate-800 cursor-not-allowed bg-slate-900/50'
+                      : 'border-slate-800 focus:border-purple-500'
+                  }`}
                 />
+                {reportAllTime && (
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Disabled (Whole time active)</span>
+                )}
               </div>
 
               <div className="sm:col-span-3">
-                <label className="text-xs font-semibold text-slate-300 block mb-1">To Date</label>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  To Date {!reportAllTime && <span className="text-rose-400 font-bold">*</span>}
+                </label>
                 <input
                   type="date"
-                  value={reportEndDate}
-                  onChange={(e) => setReportEndDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
+                  disabled={reportAllTime}
+                  value={reportAllTime ? '' : reportEndDate}
+                  onChange={(e) => {
+                    setReportEndDate(e.target.value);
+                    if (reportError) setReportError('');
+                  }}
+                  className={`w-full bg-slate-950 border rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition ${
+                    reportAllTime
+                      ? 'opacity-40 border-slate-800 cursor-not-allowed bg-slate-900/50'
+                      : 'border-slate-800 focus:border-purple-500'
+                  }`}
                 />
+                {reportAllTime && (
+                  <span className="text-[10px] text-slate-500 block mt-0.5">Disabled (Whole time active)</span>
+                )}
               </div>
 
               <div className="sm:col-span-2 flex items-end">

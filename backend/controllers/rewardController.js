@@ -99,6 +99,14 @@ const createOrUpdateDraw = async (req, res) => {
       return res.status(403).json({ message: 'Only the organizer can configure promotional rewards for this event' });
     }
 
+    const { computeLiveStatus } = require('../utils/eventTiming');
+    const liveStatus = computeLiveStatus(event);
+    if (event.status === 'COMPLETED' || liveStatus === 'COMPLETED') {
+      return res.status(400).json({
+        message: 'This event has concluded. Reward campaigns cannot be modified for completed events.',
+      });
+    }
+
     const promoTicketPrice = Math.round(event.ticketPrice * (1 - discountPercentage / 100));
 
     let draw = await RewardDraw.findOne({ event: event._id });
@@ -156,6 +164,15 @@ const executeDraw = async (req, res) => {
     if (draw.drawStatus === 'COMPLETED') {
       return res.status(400).json({
         message: 'The Lucky Draw for this event has already been conducted. Winners have already been selected and vouchers issued. Re-drawing is disabled to preserve winner fairness.',
+      });
+    }
+
+    // Prevent executing lucky draws for completed events
+    const { computeLiveStatus } = require('../utils/eventTiming');
+    const liveStatus = computeLiveStatus(draw.event);
+    if (draw.event.status === 'COMPLETED' || liveStatus === 'COMPLETED') {
+      return res.status(400).json({
+        message: 'This event has concluded. Lucky draws cannot be conducted after an event is completed. You can only view the winners list.',
       });
     }
 
