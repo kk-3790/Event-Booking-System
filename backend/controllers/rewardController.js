@@ -103,11 +103,15 @@ const createOrUpdateDraw = async (req, res) => {
 
     let draw = await RewardDraw.findOne({ event: event._id });
     if (draw) {
+      if (draw.drawStatus === 'COMPLETED') {
+        return res.status(400).json({
+          message: 'Campaign settings cannot be modified because the Lucky Draw has already been completed and winners announced.',
+        });
+      }
       draw.discountPercentage = discountPercentage;
       draw.promoTicketPrice = promoTicketPrice;
       draw.numberOfWinners = numberOfWinners;
       if (drawDate) draw.drawDate = drawDate;
-      if (draw.drawStatus === 'COMPLETED') draw.drawStatus = 'OPEN';
       await draw.save();
     } else {
       draw = await RewardDraw.create({
@@ -146,6 +150,13 @@ const executeDraw = async (req, res) => {
 
     if (req.user.role !== 'ADMIN' && draw.event.organizer._id.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You are not authorized to conduct this draw' });
+    }
+
+    // Prevent re-running already completed draws
+    if (draw.drawStatus === 'COMPLETED') {
+      return res.status(400).json({
+        message: 'The Lucky Draw for this event has already been conducted. Winners have already been selected and vouchers issued. Re-drawing is disabled to preserve winner fairness.',
+      });
     }
 
     if (!draw.participants || draw.participants.length === 0) {

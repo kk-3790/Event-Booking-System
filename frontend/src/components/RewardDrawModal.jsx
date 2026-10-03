@@ -174,9 +174,10 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                     type="number"
                     min="1"
                     max="90"
+                    disabled={isCompleted}
                     value={discountPercentage}
                     onChange={(e) => setDiscountPercentage(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-50"
                   />
                   <Percent className="w-3.5 h-3.5 text-slate-500 absolute right-3 top-2.5" />
                 </div>
@@ -192,9 +193,10 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                     type="number"
                     min="1"
                     max="100"
+                    disabled={isCompleted}
                     value={numberOfWinners}
                     onChange={(e) => setNumberOfWinners(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-50"
                   />
                   <Trophy className="w-3.5 h-3.5 text-slate-500 absolute right-3 top-2.5" />
                 </div>
@@ -203,34 +205,57 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
             </div>
 
             <div className="pt-2 flex justify-end">
-              <Button variant="secondary" size="sm" loading={saving} type="submit">
-                <span>Save Reward Campaign</span>
-              </Button>
+              {isCompleted ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Campaign Finalized & Settings Locked</span>
+                </div>
+              ) : (
+                <Button variant="secondary" size="sm" loading={saving} type="submit">
+                  <span>Save Reward Campaign</span>
+                </Button>
+              )}
             </div>
           </form>
 
           {/* Execution Section */}
           {drawData && (
-            <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className={`p-4 rounded-2xl border space-y-3 ${
+              isCompleted 
+                ? 'bg-purple-500/10 border-purple-500/30' 
+                : 'bg-amber-500/5 border-amber-500/20'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h5 className="text-xs font-bold text-amber-300">Conduct Random Winner Draw</h5>
-                  <p className="text-[11px] text-slate-400">
-                    Picks {numberOfWinners} lucky winners from {participantsCount} enrolled ticket buyers and sends in-app notifications.
+                  <h5 className={`text-xs font-bold flex items-center gap-1.5 ${isCompleted ? 'text-purple-300' : 'text-amber-300'}`}>
+                    <Trophy className="w-4 h-4 shrink-0" />
+                    <span>{isCompleted ? 'Lucky Draw Finalized & Concluded' : 'Conduct Random Winner Draw'}</span>
+                  </h5>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    {isCompleted
+                      ? `Official draw complete. ${winnersCount} lucky winners were chosen and awarded vouchers. Re-drawing is disabled.`
+                      : `Picks ${numberOfWinners} lucky winners from ${participantsCount} enrolled ticket buyers and sends in-app notifications.`}
                   </p>
                 </div>
 
-                <Button
-                  variant="gradient"
-                  size="sm"
-                  loading={executing}
-                  onClick={handleRunDraw}
-                  disabled={participantsCount === 0}
-                  className="shrink-0 cursor-pointer"
-                >
-                  <Trophy className="w-3.5 h-3.5 mr-1.5" />
-                  <span>{isCompleted ? 'Rerun Draw' : 'Execute Draw'}</span>
-                </Button>
+                {isCompleted ? (
+                  <div className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-500/20 text-purple-200 border border-purple-500/40 text-xs font-bold shadow-sm">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Official Draw Closed</span>
+                  </div>
+                ) : (
+                  <Button
+                    variant="gradient"
+                    size="sm"
+                    loading={executing}
+                    onClick={handleRunDraw}
+                    disabled={participantsCount === 0}
+                    className="shrink-0 cursor-pointer"
+                  >
+                    <Trophy className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Execute Draw</span>
+                  </Button>
+                )}
               </div>
 
               {/* Winners List */}
