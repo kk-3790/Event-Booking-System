@@ -29,4 +29,19 @@ const authorizeRoles = (...roles) => {
   };
 };
 
-module.exports = { protect, authorizeRoles };
+// Optional auth: Decodes JWT if token is provided, but does not block unauthenticated users
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+    } catch {
+      // Ignore invalid token on optional routes
+    }
+  }
+  next();
+};
+
+module.exports = { protect, authorizeRoles, optionalAuth };

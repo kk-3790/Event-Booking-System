@@ -126,23 +126,43 @@ const bookTicket = async (req, res) => {
 
     let unitPrice = baseTicketPrice;
     const cleanPromo = (promoCode || '').trim().toUpperCase();
+    let appliedVoucher = null;
 
-    if (cleanPromo && STATIC_PROMOS[cleanPromo]) {
-      const discount = STATIC_PROMOS[cleanPromo];
-      unitPrice = Math.round(baseTicketPrice * (1 - discount / 100));
-    } else if (isPromotional || cleanPromo) {
-      try {
-        const RewardDraw = require('../models/RewardDraw');
-        const draw = await RewardDraw.findOne({ event: eventId, drawStatus: 'OPEN' });
-        if (draw && draw.promoTicketPrice && !selectedTier) {
-          unitPrice = draw.promoTicketPrice;
-        } else if (draw && draw.discountPercentage) {
-          unitPrice = Math.round(baseTicketPrice * (1 - draw.discountPercentage / 100));
-        } else {
+    if (cleanPromo) {
+      const Voucher = require('../models/Voucher');
+      const voucher = await Voucher.findOne({
+        code: cleanPromo,
+        user: req.user.id,
+        isRedeemed: false,
+      });
+
+      if (voucher) {
+        const eventDoc = await Event.findById(eventId);
+        if (eventDoc && eventDoc.organizer.toString() === voucher.organizer.toString()) {
+          unitPrice = Math.round(baseTicketPrice * (1 - voucher.discountPercentage / 100));
+          appliedVoucher = voucher;
+        }
+      }
+    }
+
+    if (!appliedVoucher) {
+      if (cleanPromo && STATIC_PROMOS[cleanPromo]) {
+        const discount = STATIC_PROMOS[cleanPromo];
+        unitPrice = Math.round(baseTicketPrice * (1 - discount / 100));
+      } else if (isPromotional || cleanPromo) {
+        try {
+          const RewardDraw = require('../models/RewardDraw');
+          const draw = await RewardDraw.findOne({ event: eventId, drawStatus: 'OPEN' });
+          if (draw && draw.promoTicketPrice && !selectedTier) {
+            unitPrice = draw.promoTicketPrice;
+          } else if (draw && draw.discountPercentage) {
+            unitPrice = Math.round(baseTicketPrice * (1 - draw.discountPercentage / 100));
+          } else {
+            unitPrice = Math.round(baseTicketPrice * 0.8);
+          }
+        } catch (err) {
           unitPrice = Math.round(baseTicketPrice * 0.8);
         }
-      } catch (err) {
-        unitPrice = Math.round(baseTicketPrice * 0.8);
       }
     }
 
@@ -178,6 +198,13 @@ const bookTicket = async (req, res) => {
       isPromotional: Boolean(isPromotional || cleanPromo),
       qrCode,
     });
+
+    if (appliedVoucher) {
+      appliedVoucher.isRedeemed = true;
+      appliedVoucher.redeemedAt = new Date();
+      appliedVoucher.redeemedBooking = booking._id;
+      await appliedVoucher.save();
+    }
 
     if (isPromotional) {
       const RewardDraw = require('../models/RewardDraw');

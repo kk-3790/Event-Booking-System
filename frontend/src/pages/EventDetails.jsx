@@ -23,7 +23,8 @@ import {
   Check,
   Layers,
   QrCode,
-  Download
+  Download,
+  Trophy
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import Button from '../components/ui/Button';
@@ -58,6 +59,7 @@ export default function EventDetails() {
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState('');
   const [eventDraw, setEventDraw] = useState(null);
+  const [userWinnerVoucher, setUserWinnerVoucher] = useState(null);
 
   // Restrict ORGANIZER and ADMIN from accessing customer event booking page
   useEffect(() => {
@@ -103,6 +105,9 @@ export default function EventDetails() {
     rewardService.getEventDraw(id).then((res) => {
       if (res.data?.draw && res.data.draw.drawStatus === 'OPEN') {
         setEventDraw(res.data.draw);
+      }
+      if (res.data?.userWinnerVoucher) {
+        setUserWinnerVoucher(res.data.userWinnerVoucher);
       }
     }).catch(() => {});
   }, [id]);
@@ -314,6 +319,45 @@ export default function EventDetails() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+              {/* Special Winner Reward Voucher Card (For Lucky Draw Winner of this Organizer) */}
+              {userWinnerVoucher && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-indigo-500/20 border-2 border-amber-400/50 space-y-2.5 flex flex-col justify-between col-span-1 md:col-span-2 shadow-xl animate-pulse">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow">
+                        <Trophy className="w-3.5 h-3.5 text-slate-950" />
+                        🏆 Organizer Lucky Draw Winner Reward!
+                      </span>
+                      <span className="text-sm font-mono font-black text-amber-300">
+                        {userWinnerVoucher.discountPercentage}% OFF THIS BOOKING
+                      </span>
+                    </div>
+                    <h4 className="text-base font-extrabold text-white">
+                      Congratulations! You Won the Lucky Draw from this Organizer
+                    </h4>
+                    <p className="text-xs text-slate-200">
+                      Because you won the Lucky Draw in <strong>&quot;{userWinnerVoucher.sourceEventName}&quot;</strong>, host <strong>{event?.organizer?.name}</strong> has awarded you an exclusive <strong>{userWinnerVoucher.discountPercentage}% discount</strong> on your next booking!
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-amber-400/30">
+                    <span className="text-xs font-mono text-amber-200 font-bold">
+                      Your Exclusive Voucher: <strong className="text-white px-2 py-0.5 rounded bg-slate-900 border border-amber-400/40">{userWinnerVoucher.code}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPromo(userWinnerVoucher.code)}
+                      className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer shadow-lg ${
+                        appliedPromo?.code === userWinnerVoucher.code
+                          ? 'bg-emerald-600 text-white shadow-emerald-600/30'
+                          : 'bg-amber-400 hover:bg-amber-300 text-slate-950 font-black hover:scale-105'
+                      }`}
+                    >
+                      {appliedPromo?.code === userWinnerVoucher.code ? '✓ Winner Discount Applied!' : '⚡ Apply Winner Reward Voucher'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Lucky Draw Contest Card (if active on event) */}
               {eventDraw && (
                 <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 flex flex-col justify-between">
@@ -665,6 +709,22 @@ export default function EventDetails() {
                       Tap to Apply Active Deals:
                     </span>
                     <div className="flex flex-col gap-1.5">
+                      {userWinnerVoucher && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPromo(userWinnerVoucher.code)}
+                          className="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-400/40 text-left text-xs transition cursor-pointer flex items-center justify-between group shadow-sm"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+                            <div>
+                              <span className="font-bold text-amber-300 block">{userWinnerVoucher.code}</span>
+                              <span className="text-[10px] text-slate-300">{userWinnerVoucher.discountPercentage}% Off Organizer Winner Reward</span>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-black text-amber-400 group-hover:underline">Apply</span>
+                        </button>
+                      )}
                       {eventDraw && (
                         <button
                           type="button"

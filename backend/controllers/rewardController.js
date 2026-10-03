@@ -25,15 +25,47 @@ const getEventDraw = async (req, res) => {
     }
 
     let isParticipating = false;
-    if (req.user && draw) {
-      isParticipating = draw.participants.some(
-        (p) => (p._id || p).toString() === req.user.id
-      );
+    let userWinnerVoucher = null;
+    let drawObj = null;
+
+    if (draw) {
+      drawObj = draw.toObject();
+      if (draw.drawStatus === 'COMPLETED') {
+        const Voucher = require('../models/Voucher');
+        const vouchers = await Voucher.find({ rewardDraw: draw._id }).select('code user discountPercentage isRedeemed');
+        drawObj.vouchers = vouchers;
+      }
+    }
+
+    if (req.user) {
+      if (draw) {
+        isParticipating = draw.participants.some(
+          (p) => (p._id || p).toString() === req.user.id
+        );
+      }
+
+      // Check if logged-in customer has an unredeemed winner voucher from this event's organizer
+      const Voucher = require('../models/Voucher');
+      const activeVoucher = await Voucher.findOne({
+        user: req.user.id,
+        organizer: event.organizer,
+        isRedeemed: false,
+      }).populate('sourceEvent', 'eventName');
+
+      if (activeVoucher && (!activeVoucher.expiresAt || activeVoucher.expiresAt > new Date())) {
+        userWinnerVoucher = {
+          code: activeVoucher.code,
+          discountPercentage: activeVoucher.discountPercentage,
+          sourceEventName: activeVoucher.sourceEvent?.eventName || 'Previous Event',
+          expiresAt: activeVoucher.expiresAt,
+        };
+      }
     }
 
     res.status(200).json({
-      draw: draw || null,
+      draw: drawObj,
       isParticipating,
+      userWinnerVoucher,
       availablePromos: Object.keys(STATIC_PROMOS).map((k) => ({
         code: k,
         discountPercentage: STATIC_PROMOS[k].discountPercentage,
@@ -98,18 +130,21 @@ const createOrUpdateDraw = async (req, res) => {
 };
 
 // POST /api/rewards/draw/:id  (Organizer or Admin)
-// Execute the Lucky Draw selection algorithm
+// Execute the Lucky Draw selection algorithm & issue next-booking discount vouchers for same organizer
 const executeDraw = async (req, res) => {
   try {
     const draw = await RewardDraw.findById(req.params.id)
-      .populate('event')
+      .populate({
+        path: 'event',
+        populate: { path: 'organizer', select: 'name email' }
+      })
       .populate('participants', 'name email');
 
     if (!draw) {
       return res.status(404).json({ message: 'Reward draw campaign not found' });
     }
 
-    if (req.user.role !== 'ADMIN' && draw.event.organizer.toString() !== req.user.id) {
+    if (req.user.role !== 'ADMIN' && draw.event.organizer._id.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You are not authorized to conduct this draw' });
     }
 
@@ -133,22 +168,57 @@ const executeDraw = async (req, res) => {
     draw.drawDate = new Date();
     await draw.save();
 
-    // Notify winners via notificationService (dispatches email and in-app alert)
+    const organizerName = draw.event.organizer?.name || 'the event organizer';
+
+    // Issue unique winner reward vouchers valid for next booking of this same organizer
+    const Voucher = require('../models/Voucher');
+    const generatedVouchers = [];
+
+    for (const winner of selectedWinners) {
+      let voucher = await Voucher.findOne({
+        user: winner._id,
+        rewardDraw: draw._id,
+      });
+
+      if (!voucher) {
+        const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const code = `WIN-${draw.event._id.toString().slice(-4).toUpperCase()}-${randSuffix}`;
+        voucher = await Voucher.create({
+          code,
+          user: winner._id,
+          organizer: draw.event.organizer._id,
+          sourceEvent: draw.event._id,
+          rewardDraw: draw._id,
+          discountPercentage: draw.discountPercentage,
+          isRedeemed: false,
+          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days validity
+        });
+      }
+      generatedVouchers.push(voucher);
+    }
+
+    // Notify winners via notificationService (dispatches email and in-app alert) with voucher details
     const { sendEmailNotification } = require('../services/notificationService');
     await Promise.all(
-      selectedWinners.map((winner) =>
-        sendEmailNotification({
+      selectedWinners.map((winner, idx) => {
+        const v = generatedVouchers[idx];
+        const vCode = v ? v.code : 'LUCKYDRAW';
+        return sendEmailNotification({
           user: winner,
           type: 'DRAW_RESULT',
-          message: `🎉 Congratulations! You have won the Lucky Draw for "${draw.event.eventName}"! Your promotional perk is confirmed.`,
-        }).catch((e) => console.error('Winner notification failed:', e.message))
-      )
+          message: `🎉 Congratulations! You have won the Lucky Draw for "${draw.event.eventName}"! Host "${organizerName}" has rewarded you with an exclusive ${draw.discountPercentage}% discount voucher on your next event booking with them! Use voucher code "${vCode}" at checkout.`,
+        }).catch((e) => console.error('Winner notification failed:', e.message));
+      })
     );
 
+    const drawObj = draw.toObject();
+    drawObj.vouchers = generatedVouchers;
+
     res.status(200).json({
-      message: `Draw completed! ${winnerCount} winners selected successfully.`,
-      draw,
+      message: `Draw completed! ${winnerCount} winners selected successfully. Discount vouchers issued for next bookings with this organizer.`,
+      draw: drawObj,
       winners: selectedWinners,
+      vouchers: generatedVouchers,
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to execute lucky draw', error: err.message });
@@ -156,7 +226,7 @@ const executeDraw = async (req, res) => {
 };
 
 // POST /api/rewards/apply-promo (Customer)
-// Validate promo code or event lucky draw opt-in
+// Validate promo code, lucky draw code, or personal winner voucher for same organizer
 const applyPromoCode = async (req, res) => {
   try {
     const { code, eventId } = req.body;
@@ -171,7 +241,51 @@ const applyPromoCode = async (req, res) => {
 
     const cleanCode = (code || '').trim().toUpperCase();
 
-    // 1. Check if matching static platform voucher
+    // 1. Check if matching personal winner voucher issued by this event's organizer
+    const Voucher = require('../models/Voucher');
+    const voucher = await Voucher.findOne({
+      code: cleanCode,
+      isRedeemed: false,
+    }).populate('organizer', 'name email').populate('sourceEvent', 'eventName');
+
+    if (voucher) {
+      // Verify account ownership
+      if (!req.user || voucher.user.toString() !== req.user.id) {
+        return res.status(403).json({
+          valid: false,
+          message: 'This winner reward voucher belongs to another attendee account.',
+        });
+      }
+
+      // Verify expiration
+      if (voucher.expiresAt && voucher.expiresAt < new Date()) {
+        return res.status(400).json({
+          valid: false,
+          message: 'This winner reward voucher has expired.',
+        });
+      }
+
+      // Verify event organizer matches the voucher's issuing organizer
+      if (event.organizer.toString() !== voucher.organizer._id.toString()) {
+        return res.status(400).json({
+          valid: false,
+          message: `This voucher is exclusively valid for events hosted by "${voucher.organizer.name}". It cannot be used for events by other organizers.`,
+        });
+      }
+
+      const discountedPrice = Math.round(event.ticketPrice * (1 - voucher.discountPercentage / 100));
+      return res.status(200).json({
+        valid: true,
+        code: voucher.code,
+        discountPercentage: voucher.discountPercentage,
+        discountedPrice,
+        isPromotional: true,
+        isWinnerVoucher: true,
+        description: `🎉 Lucky Draw Winner Reward: ${voucher.discountPercentage}% Off from organizer "${voucher.organizer.name}" (Won in "${voucher.sourceEvent.eventName}")`,
+      });
+    }
+
+    // 2. Check if matching static platform voucher
     if (STATIC_PROMOS[cleanCode]) {
       const promo = STATIC_PROMOS[cleanCode];
       const discountedPrice = Math.round(event.ticketPrice * (1 - promo.discountPercentage / 100));
@@ -185,7 +299,7 @@ const applyPromoCode = async (req, res) => {
       });
     }
 
-    // 2. Check if matching active event Lucky Draw code (e.g. "LUCKYDRAW" or "PROMO")
+    // 3. Check if matching active event Lucky Draw code (e.g. "LUCKYDRAW" or "PROMO")
     const draw = await RewardDraw.findOne({ event: eventId, drawStatus: 'OPEN' });
     if (draw && (cleanCode === 'LUCKYDRAW' || cleanCode === 'LUCKY' || cleanCode === 'DRAW')) {
       return res.status(200).json({
@@ -200,10 +314,26 @@ const applyPromoCode = async (req, res) => {
 
     return res.status(400).json({
       valid: false,
-      message: `Invalid or expired promo code "${cleanCode}". Try LUCKY20, EARLYBIRD, or LUCKYDRAW.`,
+      message: `Invalid or expired promo code "${cleanCode}". Try LUCKY20, EARLYBIRD, or your winner voucher code.`,
     });
   } catch (err) {
     res.status(500).json({ message: 'Failed to validate promo code', error: err.message });
+  }
+};
+
+// GET /api/rewards/my-vouchers (Customer)
+// Fetch all personal vouchers earned by the logged-in user
+const getMyVouchers = async (req, res) => {
+  try {
+    const Voucher = require('../models/Voucher');
+    const vouchers = await Voucher.find({ user: req.user.id })
+      .populate('organizer', 'name email')
+      .populate('sourceEvent', 'eventName date venue')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(vouchers);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch vouchers', error: err.message });
   }
 };
 
@@ -212,4 +342,5 @@ module.exports = {
   createOrUpdateDraw,
   executeDraw,
   applyPromoCode,
+  getMyVouchers,
 };

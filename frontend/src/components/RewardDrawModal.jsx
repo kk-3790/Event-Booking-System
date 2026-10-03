@@ -236,24 +236,50 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
               {/* Winners List */}
               {drawData.winners && drawData.winners.length > 0 && (
                 <div className="pt-3 border-t border-amber-500/20 space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">
-                    Announced Lucky Winners:
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {drawData.winners.map((winner, idx) => (
-                      <div
-                        key={winner._id || idx}
-                        className="p-2.5 rounded-xl bg-slate-900 border border-amber-500/30 text-xs flex items-center gap-2"
-                      >
-                        <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0">
-                          #{idx + 1}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block">
+                      Announced Lucky Winners:
+                    </span>
+                    <span className="text-[10px] text-amber-300/80">
+                      Issued {drawData.discountPercentage}% Discount for next booking with you
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
+                    {drawData.winners.map((winner, idx) => {
+                      const winnerId = (winner._id || winner).toString();
+                      const voucher = drawData.vouchers?.find(
+                        (v) => (v.user?._id || v.user)?.toString() === winnerId
+                      );
+
+                      return (
+                        <div
+                          key={winner._id || idx}
+                          className="p-3 rounded-xl bg-slate-900 border border-amber-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-bold text-xs flex items-center justify-center shrink-0">
+                              #{idx + 1}
+                            </div>
+                            <div className="truncate">
+                              <span className="font-bold text-white block truncate">{winner.name || 'Lucky Attendee'}</span>
+                              <span className="text-[10px] text-slate-400 block truncate">{winner.email}</span>
+                            </div>
+                          </div>
+
+                          {voucher && (
+                            <div className="flex items-center gap-1.5 shrink-0 pl-8 sm:pl-0">
+                              <span className="text-[10px] text-slate-400">Voucher:</span>
+                              <span className="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono text-[11px] font-bold border border-amber-500/30">
+                                {voucher.code}
+                              </span>
+                              <span className="text-[10px] text-emerald-400 font-semibold">
+                                ({voucher.discountPercentage}% OFF)
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <div className="truncate">
-                          <span className="font-bold text-white block truncate">{winner.name || 'Lucky Attendee'}</span>
-                          <span className="text-[10px] text-slate-400 block truncate">{winner.email}</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
