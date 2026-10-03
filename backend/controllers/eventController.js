@@ -309,8 +309,16 @@ const deleteEvent = async (req, res) => {
 const getAllEvents = async (req, res) => {
   try {
     await syncEventStatuses();
-    const events = await Event.find({ status: 'ACTIVE' }).populate('organizer', 'name email mobile role');
-    res.status(200).json(events);
+    const events = await Event.find({ status: 'ACTIVE' }).populate('organizer', 'name email mobile role').lean();
+    const RewardDraw = require('../models/RewardDraw');
+    const openDraws = await RewardDraw.find({ drawStatus: 'OPEN' }).select('event discountPercentage numberOfWinners').lean();
+    const drawMap = new Map();
+    openDraws.forEach((d) => drawMap.set(d.event.toString(), d));
+    const eventsWithDraw = events.map((e) => ({
+      ...e,
+      activeDraw: drawMap.get(e._id.toString()) || null,
+    }));
+    res.status(200).json(eventsWithDraw);
   } catch (err) {
     res.status(500).json({ message: 'Failed to fetch events', error: err.message });
   }
@@ -381,8 +389,16 @@ const searchEvents = async (req, res) => {
       filter.date = { $gte: start, $lt: end };
     }
 
-    const events = await Event.find(filter).populate('organizer', 'name email');
-    res.status(200).json(events);
+    const events = await Event.find(filter).populate('organizer', 'name email mobile role').lean();
+    const RewardDraw = require('../models/RewardDraw');
+    const openDraws = await RewardDraw.find({ drawStatus: 'OPEN' }).select('event discountPercentage numberOfWinners').lean();
+    const drawMap = new Map();
+    openDraws.forEach((d) => drawMap.set(d.event.toString(), d));
+    const eventsWithDraw = events.map((e) => ({
+      ...e,
+      activeDraw: drawMap.get(e._id.toString()) || null,
+    }));
+    res.status(200).json(eventsWithDraw);
   } catch (err) {
     res.status(500).json({ message: 'Search failed', error: err.message });
   }

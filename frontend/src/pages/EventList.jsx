@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  RotateCcw
+  RotateCcw,
+  Gift
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 
@@ -508,6 +509,19 @@ export default function EventList() {
                             Organized by <span className="text-slate-400">{event.organizer.name}</span>
                           </p>
                         )}
+                      </div>
+
+                      {/* Promotional Offer Ribbons */}
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {event.activeDraw && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-300">
+                            <Sparkles className="w-3 h-3 text-amber-400" />
+                            <span>Lucky Draw ({event.activeDraw.discountPercentage}% Off)</span>
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-semibold text-emerald-300">
+                          <span>🐦 Early Bird 15% Off</span>
+                        </span>
                       </div>
 
                       {/* Available Seats Progress */}

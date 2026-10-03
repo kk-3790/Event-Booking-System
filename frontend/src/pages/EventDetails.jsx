@@ -294,6 +294,133 @@ export default function EventDetails() {
             </div>
           </div>
 
+          {/* Promotional Deals & Lucky Draw Showcase (Shown by default to every user) */}
+          <div className="rounded-3xl p-6 md:p-7 bg-gradient-to-br from-amber-950/20 via-slate-900 to-slate-950 border border-amber-500/25 shadow-2xl glass-card space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                  <Gift className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <span>Available Offers & Perks</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      LIVE DEALS
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Exclusive discounts and promotional perks open to all attendees</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+              {/* Lucky Draw Contest Card (if active on event) */}
+              {eventDraw && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold uppercase tracking-wider">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        Lucky Draw Contest
+                      </span>
+                      <span className="text-xs font-mono font-black text-amber-400">
+                        {eventDraw.discountPercentage}% OFF
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-white">Event Lucky Draw Pass</h4>
+                    <p className="text-[11px] text-slate-300">
+                      Get <strong>{eventDraw.discountPercentage}% instant discount</strong> on your ticket and enter to win as one of <strong>{eventDraw.numberOfWinners} Lucky Winners</strong>!
+                    </p>
+                  </div>
+                  <div className="pt-2 flex items-center justify-between border-t border-amber-500/20">
+                    <span className="text-[11px] font-mono text-amber-300 font-semibold">
+                      Code: <strong>LUCKYDRAW</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyPromo('LUCKYDRAW')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        appliedPromo?.code === 'LUCKYDRAW'
+                          ? 'bg-emerald-600 text-white shadow-md'
+                          : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold shadow-md hover:scale-105'
+                      }`}
+                    >
+                      {appliedPromo?.code === 'LUCKYDRAW' ? '✓ Applied & Enrolled' : 'Apply & Join Draw'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Early Bird Deal Card */}
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2.5 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold uppercase tracking-wider">
+                      🐦 Early Bird Deal
+                    </span>
+                    <span className="text-xs font-mono font-black text-emerald-400">
+                      15% OFF
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white">Early Bird Advance Booking</h4>
+                  <p className="text-[11px] text-slate-300">
+                    Lock in your reservation early and enjoy a guaranteed <strong>15% discount</strong> on all passes.
+                  </p>
+                </div>
+                <div className="pt-2 flex items-center justify-between border-t border-emerald-500/20">
+                  <span className="text-[11px] font-mono text-emerald-300 font-semibold">
+                    Code: <strong>EARLYBIRD</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPromo('EARLYBIRD')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      appliedPromo?.code === 'EARLYBIRD'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold shadow-md hover:scale-105'
+                    }`}
+                  >
+                    {appliedPromo?.code === 'EARLYBIRD' ? '✓ Applied (-15%)' : 'Apply Early Bird'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Platform Special Deal Card */}
+              <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 space-y-2.5 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[10px] font-bold uppercase tracking-wider">
+                      🎟️ Platform Voucher
+                    </span>
+                    <span className="text-xs font-mono font-black text-indigo-400">
+                      20% OFF
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-white">EventHub Lucky 20 Voucher</h4>
+                  <p className="text-[11px] text-slate-300">
+                    Save <strong>20% on booking totals</strong> with our standard platform discount pass.
+                  </p>
+                </div>
+                <div className="pt-2 flex items-center justify-between border-t border-indigo-500/20">
+                  <span className="text-[11px] font-mono text-indigo-300 font-semibold">
+                    Code: <strong>LUCKY20</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPromo('LUCKY20')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      appliedPromo?.code === 'LUCKY20'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-md hover:scale-105'
+                    }`}
+                  >
+                    {appliedPromo?.code === 'LUCKY20' ? '✓ Applied (-20%)' : 'Apply LUCKY20'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Details Tabs & Overview */}
           <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-6 md:p-8 space-y-6 glass-card">
             
@@ -479,27 +606,45 @@ export default function EventDetails() {
               </label>
 
               {appliedPromo ? (
-                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between gap-2">
-                  <div className="truncate">
-                    <span className="font-bold text-emerald-300 block">{appliedPromo.code}</span>
-                    <span className="text-[10px] text-slate-400 block truncate">{appliedPromo.description}</span>
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="font-bold text-emerald-300 font-mono text-sm">{appliedPromo.code}</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {appliedPromo.discountPercentage}% OFF
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemovePromo}
+                      className="text-xs text-rose-400 hover:text-rose-300 underline font-semibold cursor-pointer shrink-0"
+                    >
+                      Remove
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRemovePromo}
-                    className="text-xs text-rose-400 hover:text-rose-300 underline font-semibold cursor-pointer shrink-0"
-                  >
-                    Remove
-                  </button>
+                  <p className="text-[11px] text-slate-300">{appliedPromo.description}</p>
+                  {appliedPromo.code === 'LUCKYDRAW' && (
+                    <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-200 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span><strong>Enrolled in Lucky Draw!</strong> You will enter the contest upon booking.</span>
+                    </div>
+                  )}
+                  {appliedPromo.code === 'EARLYBIRD' && (
+                    <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-[11px] text-emerald-200 flex items-center gap-2">
+                      <span className="text-sm">🐦</span>
+                      <span><strong>15% Early Bird Savings Activated!</strong></span>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex gap-1.5">
                     <input
                       type="text"
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. LUCKY20 or LUCKYDRAW"
+                      placeholder="e.g. LUCKYDRAW or EARLYBIRD"
                       className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono uppercase placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                     />
                     <Button
@@ -514,32 +659,57 @@ export default function EventDetails() {
                     </Button>
                   </div>
 
-                  {/* Quick Voucher Chips */}
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPromo('LUCKY20')}
-                      className="px-2 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-[10px] font-semibold text-indigo-300 transition cursor-pointer"
-                    >
-                      LUCKY20 (20% Off)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPromo('EARLYBIRD')}
-                      className="px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-[10px] font-semibold text-emerald-300 transition cursor-pointer"
-                    >
-                      EARLYBIRD (15% Off)
-                    </button>
-                    {eventDraw && (
+                  {/* 1-Click Available Deal Cards */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Tap to Apply Active Deals:
+                    </span>
+                    <div className="flex flex-col gap-1.5">
+                      {eventDraw && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPromo('LUCKYDRAW')}
+                          className="w-full p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-left text-xs transition cursor-pointer flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                            <div>
+                              <span className="font-bold text-amber-300 block">LUCKYDRAW</span>
+                              <span className="text-[10px] text-slate-400">{eventDraw.discountPercentage}% Off + Lucky Draw Contest</span>
+                            </div>
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-400 group-hover:underline">Apply</span>
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => handleApplyPromo('LUCKYDRAW')}
-                        className="px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-[10px] font-semibold text-amber-300 transition cursor-pointer flex items-center gap-1"
+                        onClick={() => handleApplyPromo('EARLYBIRD')}
+                        className="w-full p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-left text-xs transition cursor-pointer flex items-center justify-between group"
                       >
-                        <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                        <span>LUCKYDRAW ({eventDraw.discountPercentage}% Off + Draw)</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">🐦</span>
+                          <div>
+                            <span className="font-bold text-emerald-300 block">EARLYBIRD</span>
+                            <span className="text-[10px] text-slate-400">15% Off Early Bird Advance Booking</span>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-emerald-400 group-hover:underline">Apply</span>
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPromo('LUCKY20')}
+                        className="w-full p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-left text-xs transition cursor-pointer flex items-center justify-between group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-4 h-4 text-indigo-400 shrink-0" />
+                          <div>
+                            <span className="font-bold text-indigo-300 block">LUCKY20</span>
+                            <span className="text-[10px] text-slate-400">20% Off Platform Welcome Voucher</span>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-indigo-400 group-hover:underline">Apply</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
