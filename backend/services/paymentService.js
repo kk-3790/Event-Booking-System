@@ -78,4 +78,20 @@ const verifySignature = ({ razorpayOrderId, razorpayPaymentId, razorpaySignature
   return expectedSignature === razorpaySignature;
 };
 
-module.exports = { createOrder, verifySignature, isSimulation };
+// Fetch all payments associated with an order ID from Razorpay
+const fetchOrderPayments = async (orderId) => {
+  if (isSimulation() || !orderId || orderId.startsWith('order_sim_')) {
+    return [];
+  }
+  try {
+    const rzp = getRazorpayInstance();
+    if (!rzp) return [];
+    const response = await rzp.orders.fetchPayments(orderId);
+    return response?.items || [];
+  } catch (err) {
+    console.warn(`[Razorpay fetchPayments error for ${orderId}]:`, err.message);
+    return [];
+  }
+};
+
+module.exports = { createOrder, verifySignature, isSimulation, fetchOrderPayments };

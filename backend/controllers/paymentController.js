@@ -3,6 +3,7 @@ const Event = require('../models/Event');
 const Payment = require('../models/Payment');
 const Receipt = require('../models/Receipt');
 const paymentService = require('../services/paymentService');
+const { expireIfNeeded } = require('../utils/bookingExpiry');
 
 // R.6.1 Process Ticket Payment (step 1: create the order)
 // POST /api/payments/create-order  (Customer, owner of the booking)
@@ -21,13 +22,8 @@ const createOrder = async (req, res) => {
       return res.status(403).json({ message: 'You are not allowed to pay for this booking' });
     }
 
-    // Catch a booking that has already expired but hasn't been swept by the
-    // cron job yet — same live-check pattern used elsewhere in the app.
-    if (booking.bookingStatus === 'PENDING' && booking.expiresAt && booking.expiresAt < new Date()) {
-      booking.bookingStatus = 'EXPIRED';
-      await booking.save();
-      await Event.findByIdAndUpdate(booking.event._id, { $inc: { availableSeats: booking.ticketCount } });
-    }
+    // Live-check booking status before creating an order (checks payments before expiring)
+    await expireIfNeeded(booking);
 
     if (booking.bookingStatus !== 'PENDING') {
       return res.status(400).json({ message: `This booking is ${booking.bookingStatus.toLowerCase()} and cannot be paid for` });

@@ -22,31 +22,7 @@ const generateBookingQrCode = async (bookingId) => {
   }
 };
 
-// How long a PENDING booking holds its seats before it auto-expires and
-// releases them back to the event. Set to 10 minutes (BookMyShow standard checkout hold).
-const BOOKING_HOLD_MINUTES = process.env.BOOKING_HOLD_MINUTES ? parseInt(process.env.BOOKING_HOLD_MINUTES) : 10;
-
-// If a booking is PENDING and past its expiresAt, marks it EXPIRED and
-// releases its seats back to the event. Called live wherever a booking is
-// read/acted on, so expiry is caught immediately rather than only waiting
-// for the periodic cleanup job. Returns the (possibly updated) booking.
-const expireIfNeeded = async (booking) => {
-  if (booking.bookingStatus === 'PENDING' && booking.expiresAt && booking.expiresAt < new Date()) {
-    booking.bookingStatus = 'EXPIRED';
-    booking.cancellationReason = `Hold Expired: Checkout window (${BOOKING_HOLD_MINUTES} minutes) elapsed without payment. Reserved seats were automatically released.`;
-    await booking.save();
-    const event = await Event.findById(booking.event);
-    if (event) {
-      event.availableSeats += booking.ticketCount;
-      if (booking.tierName && event.ticketTiers && event.ticketTiers.length > 0) {
-        const tier = event.ticketTiers.find((t) => t.tierName === booking.tierName);
-        if (tier) tier.availableSeats += booking.ticketCount;
-      }
-      await event.save();
-    }
-  }
-  return booking;
-};
+const { expireIfNeeded, BOOKING_HOLD_MINUTES } = require('../utils/bookingExpiry');
 
 
 // R.4.1 Book Ticket
