@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const QRCode = require('qrcode');
 const Notification = require('../models/Notification');
 
 // Check if actual SMTP / Gmail credentials are configured in .env
@@ -37,7 +38,7 @@ const SUBJECT_LINES = {
 };
 
 // Generates a responsive HTML email template with EventHub branding
-const generateEmailHtml = ({ title, message, user, booking }) => {
+const generateEmailHtml = ({ title, message, user, booking, qrImageSrc }) => {
   const eventName = booking?.event?.eventName || 'Your Event Experience';
   return `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #090d16; color: #f1f5f9; padding: 32px 16px; margin: 0;">
@@ -79,16 +80,18 @@ const generateEmailHtml = ({ title, message, user, booking }) => {
               </table>
             </div>
 
-            ${booking.qrCode ? `
-              <div style="text-align: center; margin: 20px 0;">
-                <div style="display: inline-block; background-color: #ffffff; padding: 16px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);">
-                  <img src="${booking.qrCode}" alt="Entry Gate QR Code" width="160" height="160" style="display: block; margin: 0 auto;" />
-                  <p style="margin: 8px 0 0 0; color: #0f172a; font-family: monospace; font-size: 11px; font-weight: bold; letter-spacing: 1px;">
-                    #BKG-${(booking._id || '').toString().slice(-6).toUpperCase()}
-                  </p>
-                </div>
-                <p style="color: #94a3b8; font-size: 12px; margin: 10px 0 0 0;">
-                  Scan this pass at the gate for instant entry.
+            ${(qrImageSrc || booking.qrCode) ? `
+              <div style="text-align: center; margin: 24px 0;">
+                <a href="http://localhost:5173/my-bookings" target="_blank" style="text-decoration: none; display: inline-block;">
+                  <div style="display: inline-block; background-color: #ffffff; padding: 18px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); text-align: center;">
+                    <img src="${qrImageSrc || booking.qrCode}" alt="Entry Gate QR Code" width="160" height="160" style="display: block; margin: 0 auto; border: 0; width: 160px; height: 160px;" />
+                    <p style="margin: 10px 0 0 0; color: #0f172a; font-family: 'Courier New', Courier, monospace; font-size: 13px; font-weight: 800; letter-spacing: 1.5px;">
+                      #BKG-${(booking._id || '').toString().slice(-6).toUpperCase()}
+                    </p>
+                  </div>
+                </a>
+                <p style="color: #94a3b8; font-size: 12px; margin: 12px 0 0 0;">
+                  Scan this QR pass at the entrance gate for instant admission.
                 </p>
               </div>
             ` : ''}
@@ -123,7 +126,49 @@ const sendEmailNotification = async ({ user, booking, type, message }) => {
   });
 
   const subject = SUBJECT_LINES[type] || 'EventHub Notification';
-  const htmlContent = generateEmailHtml({ title: subject, message, user, booking });
+
+  // Generate QR Code PNG buffer and inline CID attachment for Gmail / Outlook
+  let qrBuffer = null;
+  const qrValue = booking ? (booking._id || booking.bookingId || '').toString() : null;
+
+  if (qrValue) {
+    try {
+      qrBuffer = await QRCode.toBuffer(qrValue, {
+        errorCorrectionLevel: 'H',
+        margin: 1,
+        width: 320,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+    } catch (e) {
+      if (booking.qrCode && booking.qrCode.startsWith('data:image/')) {
+        const base64Part = booking.qrCode.split(',')[1];
+        if (base64Part) qrBuffer = Buffer.from(base64Part, 'base64');
+      }
+    }
+  }
+
+  const attachments = [];
+  let qrImageSrc = '';
+
+  if (qrBuffer) {
+    const qrCid = `ticket_qr_${qrValue.slice(-6).toLowerCase()}@eventhub`;
+    attachments.push({
+      filename: `ticket-pass-${qrValue.slice(-6).toUpperCase()}.png`,
+      content: qrBuffer,
+      cid: qrCid,
+      contentType: 'image/png',
+      contentDisposition: 'inline',
+    });
+    // In email HTML, cid: is natively rendered by Gmail, Apple Mail, Outlook without blocking base64
+    qrImageSrc = `cid:${qrCid}`;
+  } else if (booking?.qrCode) {
+    qrImageSrc = booking.qrCode;
+  }
+
+  const htmlContent = generateEmailHtml({ title: subject, message, user, booking, qrImageSrc });
 
   if (isEmailConfigured()) {
     try {
@@ -133,12 +178,13 @@ const sendEmailNotification = async ({ user, booking, type, message }) => {
         subject,
         text: message,
         html: htmlContent,
+        attachments,
       });
 
       notification.status = 'SENT';
       notification.providerResponseId = info.messageId;
       await notification.save();
-      console.log(`[EMAIL DISPATCHED VIA GMAIL]: To ${user.email} (ID: ${info.messageId})`);
+      console.log(`[EMAIL DISPATCHED VIA GMAIL]: To ${user.email} (ID: ${info.messageId}) with inline QR code`);
     } catch (err) {
       notification.status = 'FAILED';
       await notification.save();
