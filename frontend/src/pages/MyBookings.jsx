@@ -156,6 +156,7 @@ export default function MyBookings() {
   // Expiry helper functions (presents expired bookings under Cancelled in customer section for presence)
   const isBookingExpired = (b) => {
     if (!b) return false;
+    if (b.bookingStatus === 'CONFIRMED') return false;
     if (b.bookingStatus === 'EXPIRED') return true;
     if (b.bookingStatus === 'PENDING' && b.expiresAt) {
       return new Date(b.expiresAt).getTime() <= Date.now();
@@ -165,6 +166,7 @@ export default function MyBookings() {
 
   const isCustomerCancelledOrExpired = (b) => {
     if (!b) return false;
+    if (b.bookingStatus === 'CONFIRMED') return false;
     return b.bookingStatus === 'CANCELLED' || isBookingExpired(b);
   };
 
@@ -321,11 +323,11 @@ export default function MyBookings() {
           {filteredBookings.map((booking) => {
             const event = booking.event || {};
             const isConfirmed = booking.bookingStatus === 'CONFIRMED';
-            const isExpired = isBookingExpired(booking);
-            const isPending = booking.bookingStatus === 'PENDING' && !isExpired;
-            const isCancelled = isCustomerCancelledOrExpired(booking);
+            const isExpired = !isConfirmed && isBookingExpired(booking);
+            const isPending = !isConfirmed && booking.bookingStatus === 'PENDING' && !isExpired;
+            const isCancelled = !isConfirmed && isCustomerCancelledOrExpired(booking);
 
-            const isEventCancelled = (booking.bookingStatus === 'CANCELLED' || event.status === 'CANCELLED') && (
+            const isEventCancelled = !isConfirmed && (booking.bookingStatus === 'CANCELLED' || event.status === 'CANCELLED') && (
               booking.cancellationReason?.toLowerCase().includes('event cancelled') ||
               booking.cancellationReason?.toLowerCase().includes('organizer') ||
               booking.cancellationReason?.toLowerCase().includes('host') ||
@@ -333,13 +335,13 @@ export default function MyBookings() {
               booking.refundStatus === 'PROCESSED'
             );
 
-            const isHoldExpired = isExpired || booking.bookingStatus === 'EXPIRED' || (
+            const isHoldExpired = !isConfirmed && (isExpired || booking.bookingStatus === 'EXPIRED' || (
               booking.cancellationReason && (
                 booking.cancellationReason.toLowerCase().includes('hold expired') ||
                 booking.cancellationReason.toLowerCase().includes('checkout window') ||
                 booking.cancellationReason.toLowerCase().includes('elapsed')
               )
-            );
+            ));
 
             const formattedEventDate = event.date
               ? new Date(event.date).toLocaleDateString('en-US', {

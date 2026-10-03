@@ -334,7 +334,14 @@ const getMyBookings = async (req, res) => {
 
     await Promise.all(
       bookings.map(async (booking) => {
-        await expireIfNeeded(booking);
+        if (booking.bookingStatus === 'CONFIRMED') {
+          if (booking.cancellationReason) {
+            booking.cancellationReason = undefined;
+            await booking.save();
+          }
+        } else {
+          await expireIfNeeded(booking);
+        }
         if (!booking.qrCode) {
           booking.qrCode = await generateBookingQrCode(booking._id);
           await booking.save();

@@ -164,8 +164,22 @@ const verifyPayment = async (req, res) => {
     }
     await payment.save();
 
+    const wasExpired = payment.booking.bookingStatus === 'EXPIRED';
     payment.booking.bookingStatus = 'CONFIRMED';
+    payment.booking.cancellationReason = undefined;
     await payment.booking.save();
+
+    if (wasExpired) {
+      const eventDoc = await Event.findById(payment.booking.event);
+      if (eventDoc) {
+        eventDoc.availableSeats = Math.max(0, eventDoc.availableSeats - payment.booking.ticketCount);
+        if (payment.booking.tierName && eventDoc.ticketTiers && eventDoc.ticketTiers.length > 0) {
+          const tier = eventDoc.ticketTiers.find((t) => t.tierName === payment.booking.tierName);
+          if (tier) tier.availableSeats = Math.max(0, tier.availableSeats - payment.booking.ticketCount);
+        }
+        await eventDoc.save();
+      }
+    }
 
     // R.6.3 Generate Payment Receipt
     const receipt = await Receipt.create({
@@ -275,9 +289,23 @@ const handleRazorpayWebhook = async (req, res) => {
         booking = await Booking.findById(paymentEntity.notes.bookingId).populate('event user');
       }
 
-      if (booking && booking.bookingStatus === 'PENDING') {
+      if (booking && (booking.bookingStatus === 'PENDING' || booking.bookingStatus === 'EXPIRED')) {
+        const wasExpired = booking.bookingStatus === 'EXPIRED';
         booking.bookingStatus = 'CONFIRMED';
+        booking.cancellationReason = undefined;
         await booking.save();
+
+        if (wasExpired) {
+          const eventDoc = await Event.findById(booking.event._id || booking.event);
+          if (eventDoc) {
+            eventDoc.availableSeats = Math.max(0, eventDoc.availableSeats - booking.ticketCount);
+            if (booking.tierName && eventDoc.ticketTiers && eventDoc.ticketTiers.length > 0) {
+              const tier = eventDoc.ticketTiers.find((t) => t.tierName === booking.tierName);
+              if (tier) tier.availableSeats = Math.max(0, tier.availableSeats - booking.ticketCount);
+            }
+            await eventDoc.save();
+          }
+        }
 
         if (existingPayment) {
           existingPayment.paymentStatus = 'SUCCESS';
