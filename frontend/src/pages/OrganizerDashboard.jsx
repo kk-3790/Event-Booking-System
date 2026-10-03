@@ -150,7 +150,7 @@ export default function OrganizerDashboard() {
 
   // Open Edit Modal
   const openEditModal = (event) => {
-    if (event.status === 'CANCELLED' || event.status === 'DELETED') {
+    if (event.status === 'CANCELLED' || event.status === 'DELETED' || event.status === 'COMPLETED') {
       return;
     }
     setActiveEvent(event);
@@ -179,7 +179,7 @@ export default function OrganizerDashboard() {
 
   // Open Delete Modal
   const openDeleteModal = (event) => {
-    if (event.status === 'CANCELLED' || event.status === 'DELETED') {
+    if (event.status === 'CANCELLED' || event.status === 'DELETED' || event.status === 'COMPLETED') {
       return;
     }
     setActiveEvent(event);
@@ -769,8 +769,19 @@ export default function OrganizerDashboard() {
                   : 'N/A';
 
                 const isCancelled = event.status === 'CANCELLED' || event.status === 'DELETED';
-                const isOngoing = event.status === 'ONGOING';
-                const isCompleted = event.status === 'COMPLETED';
+                const isPastEndTime = () => {
+                  if (!event.date) return false;
+                  try {
+                    const d = new Date(event.date);
+                    const [h, m] = (event.endTime || event.time || '23:59').split(':').map(Number);
+                    d.setHours(h || 0, m || 0, 0, 0);
+                    return new Date() > d;
+                  } catch {
+                    return false;
+                  }
+                };
+                const isCompleted = event.status === 'COMPLETED' || (!isCancelled && isPastEndTime());
+                const isOngoing = !isCompleted && event.status === 'ONGOING';
 
                 return (
                   <tr key={event._id} className={`hover:bg-slate-800/30 transition-colors ${isCancelled ? 'opacity-85 bg-rose-500/[0.03]' : ''}`}>
@@ -809,7 +820,7 @@ export default function OrganizerDashboard() {
                           ? 'bg-slate-700/40 text-slate-400 border-slate-600/30'
                           : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
                       }`}>
-                        {event.status}
+                        {isCompleted ? 'COMPLETED' : event.status}
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
@@ -829,9 +840,14 @@ export default function OrganizerDashboard() {
                       ) : (
                         <>
                           <button
-                            onClick={() => setScannerEvent(event)}
-                            className="inline-flex p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition cursor-pointer"
-                            title="Gate Admission & QR Scanner"
+                            onClick={() => !isCompleted && setScannerEvent(event)}
+                            disabled={isCompleted}
+                            className={`inline-flex p-1.5 rounded-lg border transition ${
+                              isCompleted
+                                ? 'bg-slate-800/40 text-slate-600 border-slate-700/20 cursor-not-allowed opacity-40 hover:bg-slate-800/40 hover:text-slate-600'
+                                : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border-indigo-500/20 cursor-pointer'
+                            }`}
+                            title={isCompleted ? "Gate Admission Closed (Event Concluded)" : "Gate Admission & QR Scanner"}
                           >
                             <QrCode className="w-3.5 h-3.5" />
                           </button>
@@ -850,16 +866,26 @@ export default function OrganizerDashboard() {
                             <Users className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => openEditModal(event)}
-                            className="inline-flex p-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-300 transition cursor-pointer"
-                            title="Edit Event"
+                            onClick={() => !isCompleted && openEditModal(event)}
+                            disabled={isCompleted}
+                            className={`inline-flex p-1.5 rounded-lg border transition ${
+                              isCompleted
+                                ? 'bg-slate-800/40 text-slate-600 border-slate-700/20 cursor-not-allowed opacity-40 hover:bg-slate-800/40 hover:text-slate-600'
+                                : 'bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-300 border-transparent cursor-pointer'
+                            }`}
+                            title={isCompleted ? "Event Completed – Completed events cannot be edited" : "Edit Event"}
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => openDeleteModal(event)}
-                            className="inline-flex p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer"
-                            title="Delete Event"
+                            onClick={() => !isCompleted && openDeleteModal(event)}
+                            disabled={isCompleted}
+                            className={`inline-flex p-1.5 rounded-lg border transition ${
+                              isCompleted
+                                ? 'bg-slate-800/40 text-slate-600 border-slate-700/20 cursor-not-allowed opacity-40 hover:bg-slate-800/40 hover:text-slate-600'
+                                : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-transparent cursor-pointer'
+                            }`}
+                            title={isCompleted ? "Event Completed – Completed events cannot be deleted" : "Delete Event"}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

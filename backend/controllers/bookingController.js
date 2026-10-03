@@ -471,6 +471,13 @@ const checkInAttendee = async (req, res) => {
       });
     }
 
+    if (event.status === 'COMPLETED' || computeLiveStatus(event) === 'COMPLETED') {
+      return res.status(400).json({
+        message: 'Admission Closed: This event has already concluded.',
+        bookingStatus: 'COMPLETED',
+      });
+    }
+
     if (booking.bookingStatus !== 'CONFIRMED') {
       return res.status(400).json({
         message: `Admission Denied: Ticket is ${booking.bookingStatus}. Only CONFIRMED tickets can enter.`,

@@ -146,6 +146,15 @@ const updateEvent = async (req, res) => {
       return res.status(400).json({ message: 'This event has been cancelled and cannot be edited.' });
     }
 
+    // Completed events cannot be edited
+    if (event.status === 'COMPLETED' || computeLiveStatus(event) === 'COMPLETED') {
+      if (event.status !== 'COMPLETED') {
+        event.status = 'COMPLETED';
+        await event.save();
+      }
+      return res.status(400).json({ message: 'Completed events cannot be edited.' });
+    }
+
     // If eventName is being changed, make sure it's not already taken by another active event for this organizer
     if (req.body.eventName && req.body.eventName.trim() !== event.eventName) {
       const existingEvents = await Event.find({
@@ -239,6 +248,19 @@ const deleteEvent = async (req, res) => {
 
     if (req.user.role !== 'ADMIN' && event.organizer.toString() !== req.user.id) {
       return res.status(403).json({ message: 'You are not allowed to delete this event' });
+    }
+
+    // Completed events cannot be deleted or cancelled (archived for records and receipts)
+    if (event.status === 'COMPLETED' || computeLiveStatus(event) === 'COMPLETED') {
+      if (event.status !== 'COMPLETED') {
+        event.status = 'COMPLETED';
+        await event.save();
+      }
+      return res.status(400).json({ message: 'Completed events cannot be deleted or cancelled. They are archived for records and receipts.' });
+    }
+
+    if (event.status === 'CANCELLED' || event.status === 'DELETED') {
+      return res.status(400).json({ message: 'This event has already been cancelled.' });
     }
 
     // Soft delete: Mark event as CANCELLED so it remains visible for Admin oversight and historical audit ledgers
