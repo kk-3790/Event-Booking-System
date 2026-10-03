@@ -225,7 +225,7 @@ export default function AdminDashboard() {
             }}
           >
             <RotateCcw className="w-3.5 h-3.5 mr-1" />
-            <span>Refresh Hub</span>
+            <span>Refresh</span>
           </Button>
         </div>
       </div>

@@ -565,20 +565,6 @@ export default function OrganizerDashboard() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <Button
-            variant={activeTab === 'reports' ? 'primary' : 'secondary'}
-            size="md"
-            onClick={() => {
-              setActiveTab('reports');
-              if (!generatedReport) {
-                handleGenerateReport();
-              }
-            }}
-          >
-            <FileText className="w-4 h-4 mr-1.5" />
-            <span>Audit Reports</span>
-          </Button>
-
           <Button variant="gradient" size="md" onClick={openCreateModal}>
             <Plus className="w-4 h-4 mr-1.5" />
             <span>Publish New Event</span>
