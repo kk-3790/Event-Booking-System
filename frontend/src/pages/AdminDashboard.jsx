@@ -16,7 +16,6 @@ import {
   RotateCcw,
   FileText,
   Filter,
-  BarChart3,
   MapPin,
   ExternalLink,
   Printer
@@ -27,8 +26,8 @@ import { downloadReportPdf } from '../utils/reportPdfGenerator';
 export default function AdminDashboard() {
   const { user } = useAuth();
 
-  // Active view tab: 'overview' | 'users' | 'bookings' | 'events' | 'reports'
-  const [activeTab, setActiveTab] = useState('overview');
+  // Active view tab: 'users' | 'bookings' | 'events' | 'reports'
+  const [activeTab, setActiveTab] = useState('users');
 
   // Stats State
   const [stats, setStats] = useState(null);
@@ -306,18 +305,6 @@ export default function AdminDashboard() {
       {/* Navigation Tabs Bar */}
       <div id="admin-tab-nav" className="print:hidden flex items-center gap-2 p-1.5 bg-slate-900/60 rounded-2xl border border-slate-800 glass-card overflow-x-auto text-xs">
         <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
-            activeTab === 'overview'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <BarChart3 className="w-3.5 h-3.5 inline mr-1.5" />
-          Overview
-        </button>
-
-        <button
           onClick={() => setActiveTab('users')}
           className={`px-4 py-2 rounded-xl font-semibold transition shrink-0 cursor-pointer ${
             activeTab === 'users'
@@ -365,48 +352,6 @@ export default function AdminDashboard() {
           Audit & Reports
         </button>
       </div>
-
-      {/* ================= TAB 1: OVERVIEW ================= */}
-      {activeTab === 'overview' && (
-        <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 glass-card space-y-4">
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Shield className="w-4 h-4 text-amber-400" />
-            <span>Quick Controls</span>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            <button
-              onClick={() => setActiveTab('users')}
-              className="p-4 rounded-2xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition flex items-center justify-between cursor-pointer"
-            >
-              <div>
-                <span className="font-semibold text-white block">View Registered Users</span>
-                <span className="text-[11px] text-slate-400">Moderation and account status</span>
-              </div>
-              <span className="font-bold text-indigo-400 text-sm">{users.length} →</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('bookings')}
-              className="p-4 rounded-2xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition flex items-center justify-between cursor-pointer"
-            >
-              <div>
-                <span className="font-semibold text-white block">Manage Ticket Bookings</span>
-                <span className="text-[11px] text-slate-400">Ledgers and payment status</span>
-              </div>
-              <span className="font-bold text-emerald-400 text-sm">{bookings.length} →</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('events')}
-              className="p-4 rounded-2xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 text-left transition flex items-center justify-between cursor-pointer"
-            >
-              <div>
-                <span className="font-semibold text-white block">Manage Published Events</span>
-                <span className="text-[11px] text-slate-400">Cross-tenant listings and capacity</span>
-              </div>
-              <span className="font-bold text-purple-400 text-sm">{events.length} →</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ================= TAB 2: USERS DIRECTORY ================= */}
       {activeTab === 'users' && (
