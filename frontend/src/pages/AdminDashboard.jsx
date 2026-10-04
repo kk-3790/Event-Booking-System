@@ -132,7 +132,7 @@ export default function AdminDashboard() {
 
     if (!reportAllTime) {
       if (!reportStartDate || !reportEndDate) {
-        setReportError('Please select both a starting date and ending date, or check "Whole Time" for an all-time audit.');
+        setReportError('Please select both a starting date and ending date or check "Whole Time" for an all-time audit.');
         return;
       }
       if (new Date(reportEndDate) < new Date(reportStartDate)) {
