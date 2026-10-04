@@ -28,7 +28,7 @@ import Button from '../components/ui/Button';
 import PaymentModal from '../components/PaymentModal';
 import ReceiptModal from '../components/ReceiptModal';
 import { downloadTicketPdf, downloadQrImage } from '../utils/ticketPdfGenerator';
-import { formatEventDate, formatTime12h, formatTimestampTime } from '../utils/dateTime';
+import { formatEventDate, formatTime12h, formatTimestampTime, isEventStarted, isEventPastEnd } from '../utils/dateTime';
 
 // Countdown Timer Component for PENDING bookings
 function ExpiryCountdown({ expiresAt, onExpire }) {
@@ -152,6 +152,27 @@ export default function MyBookings() {
       setPaymentToast(`Payment verified! Pass for ${payingBooking.event?.eventName} is now confirmed.`);
       setPayingBooking(null);
     }
+  };
+
+  const handleInitiatePayment = (booking) => {
+    const ev = booking.event || {};
+    const isEvCancelled = ev.status === 'CANCELLED' || ev.status === 'DELETED';
+    const isEvCompleted = ev.status === 'COMPLETED' || (!isEvCancelled && isEventPastEnd(ev));
+    const isEvOngoing = !isEvCancelled && !isEvCompleted && (ev.status === 'ONGOING' || isEventStarted(ev));
+
+    if (isEvCancelled) {
+      setPaymentToast('Payment cannot be processed: this event has been cancelled by the host.');
+      return;
+    }
+    if (isEvOngoing) {
+      setPaymentToast('Payment window has closed: this event has already started.');
+      return;
+    }
+    if (isEvCompleted) {
+      setPaymentToast('Payment window has closed: this event has concluded.');
+      return;
+    }
+    setPayingBooking(booking);
   };
 
   // Expiry helper functions (presents expired bookings under Cancelled in customer section for presence)
@@ -328,11 +349,16 @@ export default function MyBookings() {
             const isPending = !isConfirmed && booking.bookingStatus === 'PENDING' && !isExpired;
             const isCancelled = !isConfirmed && isCustomerCancelledOrExpired(booking);
 
-            const isEventCancelled = !isConfirmed && (booking.bookingStatus === 'CANCELLED' || event.status === 'CANCELLED') && (
+            const isEventListingCancelled = event.status === 'CANCELLED' || event.status === 'DELETED';
+            const isEventListingCompleted = event.status === 'COMPLETED' || (!isEventListingCancelled && isEventPastEnd(event));
+            const isEventListingOngoing = !isEventListingCancelled && !isEventListingCompleted && (event.status === 'ONGOING' || isEventStarted(event));
+            const isEventBookingClosed = isEventListingCancelled || isEventListingCompleted || isEventListingOngoing;
+
+            const isEventCancelled = !isConfirmed && (booking.bookingStatus === 'CANCELLED' || isEventListingCancelled) && (
               booking.cancellationReason?.toLowerCase().includes('event cancelled') ||
               booking.cancellationReason?.toLowerCase().includes('organizer') ||
               booking.cancellationReason?.toLowerCase().includes('host') ||
-              event.status === 'CANCELLED' ||
+              isEventListingCancelled ||
               booking.refundStatus === 'PROCESSED'
             );
 
@@ -395,7 +421,7 @@ export default function MyBookings() {
                             Gate Admitted
                           </span>
                         )}
-                        {isPending && (
+                        {isPending && !isEventBookingClosed && (
                           <div className="flex items-center gap-2">
                             <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
@@ -403,6 +429,12 @@ export default function MyBookings() {
                             </span>
                             <ExpiryCountdown expiresAt={booking.expiresAt} onExpire={fetchBookings} />
                           </div>
+                        )}
+                        {isPending && isEventBookingClosed && (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-400/25 flex items-center gap-1.5">
+                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                            {isEventListingCancelled ? 'Event Cancelled • Payment Closed' : isEventListingOngoing ? 'Event Started • Payment Closed' : 'Event Concluded • Payment Closed'}
+                          </span>
                         )}
                         {isHoldExpired ? (
                           <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-400/25 flex items-center gap-1.5">
@@ -456,23 +488,38 @@ export default function MyBookings() {
 
                     {/* Pending Urgent Notice Banner */}
                     {isPending && (
-                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <Hourglass className="w-4 h-4 text-amber-400 shrink-0" />
-                          <span>
-                            Seats temporarily held for 10 minutes. Complete payment to secure your booking.
-                          </span>
+                      isEventBookingClosed ? (
+                        <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                            <span>
+                              {isEventListingCancelled
+                                ? 'This event has been cancelled by the host. Payment processing and ticket passes are closed.'
+                                : isEventListingOngoing
+                                ? 'This event has already started. The booking & payment window closed at scheduled start time.'
+                                : 'This event has concluded. Payment processing and ticket passes are closed.'}
+                            </span>
+                          </div>
                         </div>
-                        <Button
-                          variant="gradient"
-                          size="sm"
-                          onClick={() => setPayingBooking(booking)}
-                          className="shrink-0"
-                        >
-                          <CreditCard className="w-3.5 h-3.5 mr-1" />
-                          <span>Pay Now</span>
-                        </Button>
-                      </div>
+                      ) : (
+                        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <Hourglass className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span>
+                              Seats temporarily held for 10 minutes. Complete payment to secure your booking.
+                            </span>
+                          </div>
+                          <Button
+                            variant="gradient"
+                            size="sm"
+                            onClick={() => handleInitiatePayment(booking)}
+                            className="shrink-0"
+                          >
+                            <CreditCard className="w-3.5 h-3.5 mr-1" />
+                            <span>Pay Now</span>
+                          </Button>
+                        </div>
+                      )
                     )}
 
                     {/* Event Title & Location */}
@@ -565,11 +612,11 @@ export default function MyBookings() {
                         </>
                       )}
 
-                      {isPending && (
+                      {isPending && !isEventBookingClosed && (
                         <Button
                           variant="gradient"
                           size="sm"
-                          onClick={() => setPayingBooking(booking)}
+                          onClick={() => handleInitiatePayment(booking)}
                         >
                           <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                           <span>Complete Payment (₹{totalAmount})</span>
@@ -643,21 +690,39 @@ export default function MyBookings() {
                         </div>
                       </>
                     ) : isPending ? (
-                      <>
-                        <div className="w-24 h-24 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex flex-col items-center justify-center text-amber-400 space-y-1">
-                          <Lock className="w-8 h-8 text-amber-400" />
-                          <span className="text-[10px] font-bold uppercase tracking-wider font-mono">LOCKED</span>
-                        </div>
+                      isEventBookingClosed ? (
+                        <>
+                          <div className="w-24 h-24 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex flex-col items-center justify-center text-rose-400 space-y-1">
+                            <XCircle className="w-8 h-8 text-rose-400" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider font-mono">CLOSED</span>
+                          </div>
 
-                        <div className="space-y-1">
-                          <span className="text-xs font-mono font-bold text-amber-300 block">
-                            PAYMENT REQUIRED
-                          </span>
-                          <p className="text-[10px] text-slate-400 max-w-[170px]">
-                            Entry QR gate code will unlock as soon as payment is confirmed
-                          </p>
-                        </div>
-                      </>
+                          <div className="space-y-1">
+                            <span className="text-xs font-mono font-bold text-rose-300 block">
+                              {isEventListingCancelled ? 'EVENT CANCELLED' : isEventListingOngoing ? 'EVENT STARTED' : 'EVENT ENDED'}
+                            </span>
+                            <p className="text-[10px] text-slate-400 max-w-[170px]">
+                              Payment window closed because event is no longer active
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-24 h-24 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex flex-col items-center justify-center text-amber-400 space-y-1">
+                            <Lock className="w-8 h-8 text-amber-400" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider font-mono">LOCKED</span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-xs font-mono font-bold text-amber-300 block">
+                              PAYMENT REQUIRED
+                            </span>
+                            <p className="text-[10px] text-slate-400 max-w-[170px]">
+                              Entry QR gate code will unlock as soon as payment is confirmed
+                            </p>
+                          </div>
+                        </>
+                      )
                     ) : isHoldExpired ? (
                       <>
                         <div className="w-24 h-24 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex flex-col items-center justify-center text-amber-400 space-y-1">

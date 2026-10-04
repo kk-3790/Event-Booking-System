@@ -15,6 +15,7 @@ import {
   Ticket, 
   CheckCircle2, 
   AlertCircle, 
+  XCircle,
   Sparkles,
   Lock,
   Tag,
@@ -30,7 +31,7 @@ import Button from '../components/ui/Button';
 import PaymentModal from '../components/PaymentModal';
 import * as rewardService from '../services/rewardService';
 import { downloadTicketPdf } from '../utils/ticketPdfGenerator';
-import { formatEventDate, formatTime12h, formatTimeRange12h, formatTimestampTime, formatEventSchedule } from '../utils/dateTime';
+import { formatEventDate, formatTime12h, formatTimeRange12h, formatTimestampTime, formatEventSchedule, isEventStarted, isEventPastEnd } from '../utils/dateTime';
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -139,6 +140,11 @@ export default function EventDetails() {
   };
 
 
+  const isEventCancelled = event?.status === 'CANCELLED' || event?.status === 'DELETED';
+  const isEventCompleted = event ? (event.status === 'COMPLETED' || (!isEventCancelled && isEventPastEnd(event))) : false;
+  const isEventOngoing = event ? (!isEventCancelled && !isEventCompleted && (event.status === 'ONGOING' || isEventStarted(event))) : false;
+  const isBookingClosed = isEventCancelled || isEventCompleted || isEventOngoing;
+
   const maxAvailable = selectedTier ? selectedTier.availableSeats : (event?.availableSeats || 1);
 
   const handleQuantityChange = (delta) => {
@@ -147,6 +153,17 @@ export default function EventDetails() {
   };
 
   const handleBooking = async () => {
+    if (isBookingClosed) {
+      setBookingError(
+        isEventCancelled
+          ? 'This event has been cancelled by the host.'
+          : isEventOngoing
+          ? 'This event has already started. Ticket bookings and payments are closed.'
+          : 'This event has concluded. Ticket bookings and payments are closed.'
+      );
+      return;
+    }
+
     if (!user) {
       navigate('/login');
       return;
@@ -271,10 +288,27 @@ export default function EventDetails() {
                 <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
                   {event.category}
                 </span>
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{event.status}</span>
-                </span>
+                {isEventCancelled ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                    <span>CANCELLED</span>
+                  </span>
+                ) : isEventCompleted ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-300 border border-slate-500/30 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
+                    <span>COMPLETED</span>
+                  </span>
+                ) : isEventOngoing ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping"></span>
+                    <span>ONGOING • IN PROGRESS</span>
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>ACTIVE</span>
+                  </span>
+                )}
               </div>
 
               <h1 className="text-2xl md:text-4xl font-extrabold text-white leading-tight">
@@ -298,7 +332,7 @@ export default function EventDetails() {
           <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-6 md:p-8 space-y-6 glass-card">
             
             {/* Host Lucky Draw Campaign Feature Callout */}
-            {eventDraw && (
+            {eventDraw && !isBookingClosed && (
               <div className="p-4.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-500/30 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -360,10 +394,103 @@ export default function EventDetails() {
 
         </div>
 
-        {/* Right Col: Ticket Booking Widget */}
+        {/* Right Col: Ticket Booking Widget / Booking Closed Overview */}
         <div className="lg:col-span-4 sticky top-24 space-y-4">
           
-          <div className="rounded-3xl bg-slate-900/90 border border-slate-800 p-6 shadow-2xl glass-card space-y-6">
+          {isBookingClosed ? (
+            <div className="rounded-3xl bg-slate-900/90 border border-slate-800 p-6 shadow-2xl glass-card space-y-5">
+              {/* Status Notice Banner */}
+              <div className={`p-4 rounded-2xl border ${
+                isEventCancelled
+                  ? 'bg-rose-500/10 border-rose-500/25 text-rose-200'
+                  : isEventOngoing
+                  ? 'bg-purple-500/10 border-purple-500/25 text-purple-200'
+                  : 'bg-slate-800/50 border-slate-700/60 text-slate-300'
+              } space-y-2`}>
+                <div className="flex items-center gap-2">
+                  {isEventCancelled ? (
+                    <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                  ) : isEventOngoing ? (
+                    <span className="relative flex h-3.5 w-3.5 shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-purple-500"></span>
+                    </span>
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-slate-400 shrink-0" />
+                  )}
+                  <h3 className="font-extrabold text-sm text-white">
+                    {isEventCancelled
+                      ? 'Event Cancelled'
+                      : isEventOngoing
+                      ? 'Event In Progress (Live Now)'
+                      : 'Event Concluded'}
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {isEventCancelled
+                    ? 'This event has been cancelled by the organizer. Ticket bookings, promotional vouchers, and payment processing are closed.'
+                    : isEventOngoing
+                    ? 'This event has already started. Ticket reservations, promotional discounts, and payment processing closed at the scheduled start time.'
+                    : 'This event has ended. Ticket bookings, promotional vouchers, and payments are no longer available.'}
+                </p>
+              </div>
+
+              {/* Event Schedule & Details Summary */}
+              <div className="space-y-3 pt-1">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Event Schedule & Overview
+                </h4>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-400" /> Date
+                    </span>
+                    <span className="font-semibold text-white">{eventDate}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-indigo-400" /> Schedule
+                    </span>
+                    <span className="font-semibold text-white">{formatEventSchedule(event.time, event.duration, event.endTime)}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-400" /> Venue
+                    </span>
+                    <span className="font-semibold text-white text-right truncate max-w-[180px]">{event.venue}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-purple-400" /> Host
+                    </span>
+                    <span className="font-semibold text-white truncate max-w-[180px]">{event.organizer?.name || 'Verified Host'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Ticket className="w-3.5 h-3.5 text-indigo-400" /> Ticket Price
+                    </span>
+                    <span className="font-extrabold text-white">₹{(event.ticketPrice || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Direct to live events */}
+              <div className="pt-2">
+                <Link to="/" className="block">
+                  <Button variant="gradient" size="lg" className="w-full">
+                    <span>Explore Live Upcoming Events</span>
+                    <ArrowRight className="w-4 h-4 ml-1.5" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-slate-900/90 border border-slate-800 p-6 shadow-2xl glass-card space-y-6">
             
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div>
@@ -719,6 +846,7 @@ export default function EventDetails() {
             </div>
 
           </div>
+          )}
 
           <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800/80 text-xs text-slate-400 flex items-center gap-3">
             <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0" />

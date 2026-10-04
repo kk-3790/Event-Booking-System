@@ -29,6 +29,22 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ message: `This booking is ${booking.bookingStatus.toLowerCase()} and cannot be paid for` });
     }
 
+    if (!booking.event) {
+      return res.status(404).json({ message: 'Associated event not found' });
+    }
+
+    const { computeLiveStatus } = require('../utils/eventTiming');
+    const eventLiveStatus = computeLiveStatus(booking.event);
+    if (booking.event.status === 'CANCELLED' || booking.event.status === 'DELETED') {
+      return res.status(400).json({ message: 'Cannot process payment: this event has been cancelled by the organizer.' });
+    }
+    if (eventLiveStatus === 'ONGOING') {
+      return res.status(400).json({ message: 'Cannot process payment: this event has already started. Booking window has closed.' });
+    }
+    if (eventLiveStatus === 'COMPLETED') {
+      return res.status(400).json({ message: 'Cannot process payment: this event has already concluded.' });
+    }
+
     // Calculate authoritative breakdown
     let unitPrice = booking.unitPrice;
     if (!unitPrice) {
