@@ -150,9 +150,45 @@ export default function OrganizerDashboard() {
     setModalMode('create');
   };
 
+  const isPastEndTime = (ev) => {
+    if (!ev?.date) return false;
+    try {
+      const d = new Date(ev.date);
+      const [h, m] = (ev.endTime || ev.time || '23:59').split(':').map(Number);
+      d.setHours(h || 0, m || 0, 0, 0);
+      return new Date() > d;
+    } catch {
+      return false;
+    }
+  };
+
+  const isStarted = (ev) => {
+    if (!ev?.date) return false;
+    try {
+      const d = new Date(ev.date);
+      const [h, m] = (ev.time || '00:00').split(':').map(Number);
+      d.setHours(h || 0, m || 0, 0, 0);
+      return new Date() >= d;
+    } catch {
+      return false;
+    }
+  };
+
+  const checkIsCompleted = (ev) => {
+    if (!ev) return false;
+    const isCancelled = ev.status === 'CANCELLED' || ev.status === 'DELETED';
+    return ev.status === 'COMPLETED' || (!isCancelled && isPastEndTime(ev));
+  };
+
+  const checkIsOngoing = (ev) => {
+    if (!ev) return false;
+    const isCancelled = ev.status === 'CANCELLED' || ev.status === 'DELETED';
+    return !checkIsCompleted(ev) && !isCancelled && (ev.status === 'ONGOING' || isStarted(ev));
+  };
+
   // Open Edit Modal
   const openEditModal = (event) => {
-    if (event.status === 'CANCELLED' || event.status === 'DELETED' || event.status === 'COMPLETED') {
+    if (event.status === 'CANCELLED' || event.status === 'DELETED' || checkIsCompleted(event) || checkIsOngoing(event)) {
       return;
     }
     setActiveEvent(event);
@@ -181,7 +217,7 @@ export default function OrganizerDashboard() {
 
   // Open Delete Modal
   const openDeleteModal = (event) => {
-    if (event.status === 'CANCELLED' || event.status === 'DELETED' || event.status === 'COMPLETED') {
+    if (event.status === 'CANCELLED' || event.status === 'DELETED' || checkIsCompleted(event) || checkIsOngoing(event)) {
       return;
     }
     setActiveEvent(event);
@@ -773,8 +809,20 @@ export default function OrganizerDashboard() {
                     return false;
                   }
                 };
+                const isStarted = () => {
+                  if (!event.date) return false;
+                  try {
+                    const d = new Date(event.date);
+                    const [h, m] = (event.time || '00:00').split(':').map(Number);
+                    d.setHours(h || 0, m || 0, 0, 0);
+                    return new Date() >= d;
+                  } catch {
+                    return false;
+                  }
+                };
                 const isCompleted = event.status === 'COMPLETED' || (!isCancelled && isPastEndTime());
-                const isOngoing = !isCompleted && event.status === 'ONGOING';
+                const isOngoing = !isCompleted && !isCancelled && (event.status === 'ONGOING' || isStarted());
+                const isActionDisabled = isCompleted || isOngoing;
 
                 return (
                   <tr key={event._id} className={`hover:bg-slate-800/30 transition-colors ${isCancelled ? 'opacity-85 bg-rose-500/[0.03]' : ''}`}>
@@ -813,7 +861,7 @@ export default function OrganizerDashboard() {
                           ? 'bg-slate-700/40 text-slate-400 border-slate-600/30'
                           : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
                       }`}>
-                        {isCompleted ? 'COMPLETED' : event.status}
+                        {isCompleted ? 'COMPLETED' : isOngoing ? 'ONGOING' : event.status}
                       </span>
                     </td>
                     <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
@@ -859,26 +907,38 @@ export default function OrganizerDashboard() {
                             <Users className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => !isCompleted && openEditModal(event)}
-                            disabled={isCompleted}
+                            onClick={() => !isActionDisabled && openEditModal(event)}
+                            disabled={isActionDisabled}
                             className={`inline-flex p-1.5 rounded-lg border transition ${
-                              isCompleted
+                              isActionDisabled
                                 ? 'bg-slate-800/40 text-slate-600 border-slate-700/20 cursor-not-allowed opacity-40 hover:bg-slate-800/40 hover:text-slate-600'
                                 : 'bg-slate-800 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-300 border-transparent cursor-pointer'
                             }`}
-                            title={isCompleted ? "Event Completed – Completed events cannot be edited" : "Edit Event"}
+                            title={
+                              isCompleted
+                                ? "Event Completed – Completed events cannot be edited"
+                                : isOngoing
+                                ? "Event In Progress – Ongoing events cannot be edited"
+                                : "Edit Event"
+                            }
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => !isCompleted && openDeleteModal(event)}
-                            disabled={isCompleted}
+                            onClick={() => !isActionDisabled && openDeleteModal(event)}
+                            disabled={isActionDisabled}
                             className={`inline-flex p-1.5 rounded-lg border transition ${
-                              isCompleted
+                              isActionDisabled
                                 ? 'bg-slate-800/40 text-slate-600 border-slate-700/20 cursor-not-allowed opacity-40 hover:bg-slate-800/40 hover:text-slate-600'
                                 : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-transparent cursor-pointer'
                             }`}
-                            title={isCompleted ? "Event Completed – Completed events cannot be deleted" : "Delete Event"}
+                            title={
+                              isCompleted
+                                ? "Event Completed – Completed events cannot be deleted"
+                                : isOngoing
+                                ? "Event In Progress – Ongoing events cannot be deleted"
+                                : "Delete Event"
+                            }
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

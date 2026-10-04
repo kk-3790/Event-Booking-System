@@ -15,13 +15,41 @@ const STATIC_PROMOS = {
 // Retrieve active Reward Draw & Lucky Discount configuration for an event
 const getEventDraw = async (req, res) => {
   try {
-    const draw = await RewardDraw.findOne({ event: req.params.eventId })
+    let draw = await RewardDraw.findOne({ event: req.params.eventId })
       .populate('participants', 'name email')
       .populate('winners', 'name email');
 
     const event = await Event.findById(req.params.eventId);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
+    }
+
+    // If no draw exists yet, but the event is ongoing or completed, auto-create an OPEN draw with confirmed attendees
+    if (!draw) {
+      const { computeLiveStatus } = require('../utils/eventTiming');
+      const liveStatus = computeLiveStatus(event);
+      if (event.status === 'ONGOING' || liveStatus === 'ONGOING' || event.status === 'COMPLETED' || liveStatus === 'COMPLETED') {
+        const Booking = require('../models/Booking');
+        const confirmedBookings = await Booking.find({
+          event: event._id,
+          bookingStatus: 'CONFIRMED',
+        }).select('user');
+        const participantIds = [...new Set(confirmedBookings.map((b) => b.user.toString()))];
+
+        const promoTicketPrice = Math.round((event.ticketPrice || 0) * 0.8);
+        draw = await RewardDraw.create({
+          event: event._id,
+          discountPercentage: 20,
+          promoTicketPrice,
+          numberOfWinners: 2,
+          drawStatus: 'OPEN',
+          drawDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          participants: participantIds,
+        });
+        draw = await RewardDraw.findById(draw._id)
+          .populate('participants', 'name email')
+          .populate('winners', 'name email');
+      }
     }
 
     let isParticipating = false;
@@ -107,6 +135,12 @@ const createOrUpdateDraw = async (req, res) => {
       });
     }
 
+    if (event.status === 'ONGOING' || liveStatus === 'ONGOING') {
+      return res.status(400).json({
+        message: 'This event is currently ongoing. Reward campaign settings cannot be modified once an event is in progress. You can only execute the draw.',
+      });
+    }
+
     const promoTicketPrice = Math.round(event.ticketPrice * (1 - discountPercentage / 100));
 
     let draw = await RewardDraw.findOne({ event: event._id });
@@ -175,7 +209,22 @@ const executeDraw = async (req, res) => {
     }
 
     if (!draw.participants || draw.participants.length === 0) {
-      return res.status(400).json({ message: 'No participants enrolled in this draw yet' });
+      const Booking = require('../models/Booking');
+      const confirmedBookings = await Booking.find({
+        event: draw.event._id,
+        bookingStatus: 'CONFIRMED',
+      }).select('user');
+
+      if (confirmedBookings.length > 0) {
+        const userIds = [...new Set(confirmedBookings.map((b) => b.user.toString()))];
+        draw.participants = userIds;
+        await draw.save();
+        await draw.populate('participants', 'name email');
+      }
+    }
+
+    if (!draw.participants || draw.participants.length === 0) {
+      return res.status(400).json({ message: 'No participants enrolled in this draw yet. Ticket buyers must have confirmed bookings to participate in the draw.' });
     }
 
     // Shuffle participants randomly (Fisher-Yates)

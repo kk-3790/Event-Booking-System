@@ -65,13 +65,30 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
       return false;
     }
   };
+  const isStarted = () => {
+    if (!event.date) return false;
+    try {
+      const d = new Date(event.date);
+      const [h, m] = (event.time || '00:00').split(':').map(Number);
+      d.setHours(h || 0, m || 0, 0, 0);
+      return new Date() >= d;
+    } catch {
+      return false;
+    }
+  };
   const isEventCompleted = event.status === 'COMPLETED' || (!isCancelled && isPastEndTime());
+  const isEventOngoing = !isCancelled && !isEventCompleted && (event.status === 'ONGOING' || isStarted());
   const isCompleted = drawData?.drawStatus === 'COMPLETED';
+  const isCampaignLocked = isCompleted || isEventCompleted || isEventOngoing;
 
   const handleSaveConfig = async (e) => {
     e.preventDefault();
     if (isEventCompleted) {
       setError('Campaign settings cannot be modified because this event has concluded.');
+      return;
+    }
+    if (isEventOngoing) {
+      setError('Campaign settings cannot be modified while this event is ongoing. You can execute the draw below.');
       return;
     }
     setSaving(true);
@@ -173,6 +190,20 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
             </div>
           )}
 
+          {isEventOngoing && !isEventCompleted && (
+            <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                <span>
+                  <strong>Event In Progress:</strong> {isCompleted ? 'Lucky draw has been concluded. Viewing official winners checklist.' : 'Campaign settings are locked while the event is ongoing. You can now execute the lucky draw for your attendees below.'}
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-[10px] font-bold text-purple-300 shrink-0">
+                {isCompleted ? 'Draw Closed' : 'Draw Ready'}
+              </span>
+            </div>
+          )}
+
           {/* Quick Metrics */}
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-center">
@@ -180,11 +211,13 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
               <span className={`text-xs font-bold mt-1 inline-block px-2 py-0.5 rounded-full ${
                 isCompleted 
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
+                  : isEventOngoing
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                   : isEventCompleted
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                   : drawData ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
               }`}>
-                {isCompleted ? 'DRAW CONCLUDED' : isEventCompleted ? 'READY TO EXECUTE' : (drawData?.drawStatus || 'NOT CONFIGURED')}
+                {isCompleted ? 'DRAW CONCLUDED' : isEventOngoing ? 'ONGOING – DRAW ACTIVE' : isEventCompleted ? 'READY TO EXECUTE' : (drawData?.drawStatus || 'NOT CONFIGURED')}
               </span>
             </div>
 
@@ -214,7 +247,7 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                     type="number"
                     min="1"
                     max="90"
-                    disabled={isCompleted || isEventCompleted}
+                    disabled={isCampaignLocked}
                     value={discountPercentage}
                     onChange={(e) => setDiscountPercentage(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-50"
@@ -233,7 +266,7 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                     type="number"
                     min="1"
                     max="100"
-                    disabled={isCompleted || isEventCompleted}
+                    disabled={isCampaignLocked}
                     value={numberOfWinners}
                     onChange={(e) => setNumberOfWinners(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500 disabled:opacity-50"
@@ -249,6 +282,11 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/40 text-slate-400 text-xs font-semibold">
                   <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
                   <span>Campaign Locked (Event Concluded)</span>
+                </div>
+              ) : isEventOngoing ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Campaign Locked (Event Ongoing – Execute Draw Below)</span>
                 </div>
               ) : isCompleted ? (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-semibold">
@@ -279,6 +317,8 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
                   <p className="text-[11px] text-slate-300 mt-0.5">
                     {isCompleted
                       ? `Event concluded. Below is the verified checklist of ${winnersCount} lucky winners and their next-booking discount vouchers.`
+                      : isEventOngoing
+                      ? `Event in progress: Execute the lucky draw to pick ${numberOfWinners} lucky winners from ${participantsCount} enrolled ticket buyers.`
                       : isEventCompleted
                       ? `Event concluded: Execute the lucky draw to pick ${numberOfWinners} lucky winners from ${participantsCount} enrolled ticket buyers.`
                       : `Picks ${numberOfWinners} lucky winners from ${participantsCount} enrolled ticket buyers and sends in-app notifications.`}

@@ -146,6 +146,11 @@ const updateEvent = async (req, res) => {
       return res.status(400).json({ message: 'This event has been cancelled and cannot be edited.' });
     }
 
+    // Ongoing events cannot be edited while in progress
+    if (event.status === 'ONGOING' || computeLiveStatus(event) === 'ONGOING') {
+      return res.status(400).json({ message: 'Ongoing events cannot be edited while in progress.' });
+    }
+
     // Completed events cannot be edited
     if (event.status === 'COMPLETED' || computeLiveStatus(event) === 'COMPLETED') {
       if (event.status !== 'COMPLETED') {
@@ -257,6 +262,11 @@ const deleteEvent = async (req, res) => {
         await event.save();
       }
       return res.status(400).json({ message: 'Completed events cannot be deleted or cancelled. They are archived for records and receipts.' });
+    }
+
+    // Ongoing events cannot be deleted or cancelled while in progress
+    if (event.status === 'ONGOING' || computeLiveStatus(event) === 'ONGOING') {
+      return res.status(400).json({ message: 'Ongoing events cannot be deleted or cancelled while in progress.' });
     }
 
     if (event.status === 'CANCELLED' || event.status === 'DELETED') {
