@@ -36,8 +36,15 @@ import AttendeesModal from '../components/AttendeesModal';
 import RewardDrawModal from '../components/RewardDrawModal';
 import CheckInScannerModal from '../components/CheckInScannerModal';
 import * as reportService from '../services/reportService';
-import { downloadReportPdf } from '../utils/reportPdfGenerator';
-import { formatEventDate, formatTimeRange12h } from '../utils/dateTime';
+import {
+  formatEventDate,
+  formatTimeRange12h,
+  formatEventSchedule,
+  formatCalculatedEndTime,
+  calculateEndTime,
+  isEventPastEnd,
+  isEventStarted,
+} from '../utils/dateTime';
 
 const STANDARD_CATEGORIES = ['Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
 const CATEGORIES = [...STANDARD_CATEGORIES, 'Other'];
@@ -99,7 +106,7 @@ export default function OrganizerDashboard() {
     venue: '',
     date: '',
     time: '10:00',
-    endTime: '18:00',
+    duration: 2,
     ticketPrice: '',
     availableSeats: '',
     bannerImage: '',
@@ -150,29 +157,9 @@ export default function OrganizerDashboard() {
     setModalMode('create');
   };
 
-  const isPastEndTime = (ev) => {
-    if (!ev?.date) return false;
-    try {
-      const d = new Date(ev.date);
-      const [h, m] = (ev.endTime || ev.time || '23:59').split(':').map(Number);
-      d.setHours(h || 0, m || 0, 0, 0);
-      return new Date() > d;
-    } catch {
-      return false;
-    }
-  };
+  const isPastEndTime = (ev) => isEventPastEnd(ev);
 
-  const isStarted = (ev) => {
-    if (!ev?.date) return false;
-    try {
-      const d = new Date(ev.date);
-      const [h, m] = (ev.time || '00:00').split(':').map(Number);
-      d.setHours(h || 0, m || 0, 0, 0);
-      return new Date() >= d;
-    } catch {
-      return false;
-    }
-  };
+  const isStarted = (ev) => isEventStarted(ev);
 
   const checkIsCompleted = (ev) => {
     if (!ev) return false;
@@ -199,7 +186,7 @@ export default function OrganizerDashboard() {
       venue: event.venue || '',
       date: event.date ? new Date(event.date).toISOString().slice(0, 10) : '',
       time: event.time || '10:00',
-      endTime: event.endTime || '18:00',
+      duration: event.duration !== undefined ? event.duration : 2,
       ticketPrice: event.ticketPrice ?? '',
       availableSeats: event.availableSeats ?? '',
       bannerImage: event.bannerImage || '',
@@ -318,13 +305,21 @@ export default function OrganizerDashboard() {
       return;
     }
 
-    if (formData.time >= formData.endTime) {
-      setModalError('End Time must be later than Start Time.');
+    const durationNum = Number(formData.duration);
+    if (!durationNum || durationNum < 0.5) {
+      setModalError('Duration must be at least 0.5 hours (30 minutes).');
+      return;
+    }
+    if (durationNum > 168) {
+      setModalError('Duration cannot exceed 168 hours (7 days).');
       return;
     }
 
+    const calculatedEnd = calculateEndTime(formData.time, durationNum);
     let payload = {
       ...formData,
+      duration: durationNum,
+      endTime: calculatedEnd,
       ticketPrice: Number(formData.ticketPrice) || 0,
       availableSeats: Number(formData.availableSeats) || 0,
     };
@@ -798,30 +793,8 @@ export default function OrganizerDashboard() {
                 const formattedDate = event.date ? formatEventDate(event.date, false) : 'N/A';
 
                 const isCancelled = event.status === 'CANCELLED' || event.status === 'DELETED';
-                const isPastEndTime = () => {
-                  if (!event.date) return false;
-                  try {
-                    const d = new Date(event.date);
-                    const [h, m] = (event.endTime || event.time || '23:59').split(':').map(Number);
-                    d.setHours(h || 0, m || 0, 0, 0);
-                    return new Date() > d;
-                  } catch {
-                    return false;
-                  }
-                };
-                const isStarted = () => {
-                  if (!event.date) return false;
-                  try {
-                    const d = new Date(event.date);
-                    const [h, m] = (event.time || '00:00').split(':').map(Number);
-                    d.setHours(h || 0, m || 0, 0, 0);
-                    return new Date() >= d;
-                  } catch {
-                    return false;
-                  }
-                };
-                const isCompleted = event.status === 'COMPLETED' || (!isCancelled && isPastEndTime());
-                const isOngoing = !isCompleted && !isCancelled && (event.status === 'ONGOING' || isStarted());
+                const isCompleted = event.status === 'COMPLETED' || (!isCancelled && isEventPastEnd(event));
+                const isOngoing = !isCompleted && !isCancelled && (event.status === 'ONGOING' || isEventStarted(event));
                 const isActionDisabled = isCompleted || isOngoing;
 
                 return (
@@ -838,7 +811,7 @@ export default function OrganizerDashboard() {
                     </td>
                     <td className="p-3.5 text-slate-300">
                       <div>{formattedDate}</div>
-                      <div className="text-[10px] text-slate-500">{formatTimeRange12h(event.time, event.endTime)}</div>
+                      <div className="text-[10px] text-slate-500">{formatEventSchedule(event.time, event.duration, event.endTime)}</div>
                     </td>
                     <td className="p-3.5 text-slate-400 max-w-[150px] truncate">
                       {event.venue}
@@ -1490,15 +1463,26 @@ export default function OrganizerDashboard() {
                   required
                 />
 
-                <Input
-                  label="End Time (HH:MM)"
-                  id="endTime"
-                  name="endTime"
-                  type="time"
-                  value={formData.endTime}
-                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  required
-                />
+                <div>
+                  <Input
+                    label="Duration (Hours)"
+                    id="duration"
+                    name="duration"
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="72"
+                    value={formData.duration}
+                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                    required
+                  />
+                  {formData.time && formData.duration && (
+                    <div className="mt-1 text-[11px] text-indigo-400 font-medium flex items-center justify-between">
+                      <span>Ends: {formatCalculatedEndTime(formData.time, formData.duration)}</span>
+                      <span className="text-slate-500 text-[10px]">({formData.duration} {Number(formData.duration) === 1 ? 'hr' : 'hrs'})</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Event Description */}

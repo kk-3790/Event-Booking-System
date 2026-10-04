@@ -23,6 +23,37 @@ export const formatTime12h = (timeStr) => {
 };
 
 /**
+ * Calculates end time string ("HH:mm") from start time and duration (hours).
+ */
+export const calculateEndTime = (startTime, durationHours) => {
+  if (!startTime) return '';
+  const [sh, sm] = String(startTime).split(':').map(Number);
+  const totalMins = (sh || 0) * 60 + (sm || 0) + Math.round(Number(durationHours || 2) * 60);
+  const endHours = Math.floor(totalMins / 60) % 24;
+  const endMins = totalMins % 60;
+  return `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+};
+
+/**
+ * Formats a calculated end time preview with 12h time and optional "(+1 day)" indicator for overnight events.
+ */
+export const formatCalculatedEndTime = (startTime, durationHours) => {
+  if (!startTime) return '';
+  const [sh, sm] = String(startTime).split(':').map(Number);
+  const durNum = Number(durationHours) || 2;
+  const totalMins = (sh || 0) * 60 + (sm || 0) + Math.round(durNum * 60);
+  const daysAdded = Math.floor(totalMins / (24 * 60));
+  const endHours = Math.floor(totalMins / 60) % 24;
+  const endMins = totalMins % 60;
+  const timeStr = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+  const formatted12h = formatTime12h(timeStr);
+  if (daysAdded > 0) {
+    return `${formatted12h} (+${daysAdded} day${daysAdded > 1 ? 's' : ''})`;
+  }
+  return formatted12h;
+};
+
+/**
  * Formats a start and end time into an Indian 12h time range (e.g. "10:00 AM – 6:00 PM").
  */
 export const formatTimeRange12h = (startTime, endTime) => {
@@ -30,6 +61,24 @@ export const formatTimeRange12h = (startTime, endTime) => {
   if (!endTime) return formatTime12h(startTime);
   if (!startTime) return formatTime12h(endTime);
   return `${formatTime12h(startTime)} – ${formatTime12h(endTime)}`;
+};
+
+/**
+ * Formats event timing with duration and start/end schedule.
+ * Correctly presents overnight events (e.g. "10:00 PM – 1:00 AM (+1 day) (3 hrs)").
+ */
+export const formatEventSchedule = (startTime, durationHours, endTime) => {
+  if (!startTime) return '';
+  const start12h = formatTime12h(startTime);
+  if (durationHours && Number(durationHours) > 0) {
+    const endFormatted = formatCalculatedEndTime(startTime, durationHours);
+    const durText = `${durationHours} ${Number(durationHours) === 1 ? 'hr' : 'hrs'}`;
+    return `${start12h} – ${endFormatted} (${durText})`;
+  }
+  if (endTime) {
+    return formatTimeRange12h(startTime, endTime);
+  }
+  return start12h;
 };
 
 /**
@@ -85,4 +134,59 @@ export const formatTimestampTime = (dateVal) => {
   hours = hours % 12 || 12;
 
   return `${hours}:${minutes} ${period}`;
+};
+
+/**
+ * Combines an event's date and "HH:mm" time string into a JavaScript Date object.
+ */
+export const combineDateAndTime = (dateVal, timeStr) => {
+  if (!dateVal) return new Date();
+  const d = new Date(dateVal);
+  const [h, m] = (timeStr || '00:00').split(':').map(Number);
+  d.setHours(h || 0, m || 0, 0, 0);
+  return d;
+};
+
+/**
+ * Returns the JavaScript Date when an event starts.
+ */
+export const getEventStart = (event) => {
+  if (!event) return new Date();
+  return combineDateAndTime(event.date, event.time);
+};
+
+/**
+ * Returns the JavaScript Date when an event ends.
+ * Automatically handles overnight events crossing midnight into the next day.
+ */
+export const getEventEnd = (event) => {
+  if (!event) return new Date();
+  const start = getEventStart(event);
+  if (event.duration && Number(event.duration) > 0) {
+    return new Date(start.getTime() + Number(event.duration) * 60 * 60 * 1000);
+  }
+  if (event.endTime) {
+    const end = combineDateAndTime(event.date, event.endTime);
+    if (end <= start) {
+      end.setDate(end.getDate() + 1);
+    }
+    return end;
+  }
+  return new Date(start.getTime() + 2 * 60 * 60 * 1000);
+};
+
+/**
+ * Checks if the event has ended.
+ */
+export const isEventPastEnd = (event, now = new Date()) => {
+  if (!event?.date) return false;
+  return now > getEventEnd(event);
+};
+
+/**
+ * Checks if the event has started.
+ */
+export const isEventStarted = (event, now = new Date()) => {
+  if (!event?.date) return false;
+  return now >= getEventStart(event);
 };

@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { formatEventDate, formatTime12h, formatTimeRange12h } from './dateTime';
+import { formatEventDate, formatTime12h, formatEventSchedule } from './dateTime';
 
 /**
  * Generates and downloads an official high-resolution EventHub Ticket Pass PDF
@@ -95,7 +95,7 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
 
   // Event Date, Time, Venue
   const formattedDate = ev.date ? formatEventDate(ev.date) : 'Date TBD';
-  const timeFormatted = ev.time ? (ev.endTime ? `${formatTime12h(ev.time)} - ${formatTime12h(ev.endTime)}` : formatTime12h(ev.time)) : '';
+  const timeFormatted = ev.time ? formatEventSchedule(ev.time, ev.duration, ev.endTime) : '';
 
   const titleLinesCount = splitTitle.length;
   const dateY = titleLinesCount > 1 ? 55 : 53;

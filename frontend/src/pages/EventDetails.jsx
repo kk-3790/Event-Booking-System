@@ -30,7 +30,7 @@ import Button from '../components/ui/Button';
 import PaymentModal from '../components/PaymentModal';
 import * as rewardService from '../services/rewardService';
 import { downloadTicketPdf } from '../utils/ticketPdfGenerator';
-import { formatEventDate, formatTime12h, formatTimeRange12h, formatTimestampTime } from '../utils/dateTime';
+import { formatEventDate, formatTime12h, formatTimeRange12h, formatTimestampTime, formatEventSchedule } from '../utils/dateTime';
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -288,7 +288,7 @@ export default function EventDetails() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-indigo-400" />
-                  <span>{formatTimeRange12h(event.time, event.endTime)}</span>
+                  <span>{formatEventSchedule(event.time, event.duration, event.endTime)}</span>
                 </div>
               </div>
             </div>

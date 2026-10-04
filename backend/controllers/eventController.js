@@ -35,6 +35,7 @@ const createEvent = async (req, res) => {
       venue,
       date,
       time,
+      duration,
       endTime,
       ticketPrice,
       availableSeats,
@@ -45,18 +46,33 @@ const createEvent = async (req, res) => {
     } = req.body;
 
     const hasTiers = Array.isArray(ticketTiers) && ticketTiers.length > 0;
-    if (!eventName || !category || !venue || !date || !time || !endTime || (!hasTiers && (ticketPrice == null || availableSeats == null))) {
-      return res.status(400).json({ message: 'All event fields are required, including endTime' });
+    if (!eventName || !category || !venue || !date || !time || (!hasTiers && (ticketPrice == null || availableSeats == null))) {
+      return res.status(400).json({ message: 'All event fields are required (eventName, category, venue, date, time, and pricing)' });
     }
 
-    const { combineDateAndTime } = require('../utils/eventTiming');
+    const { combineDateAndTime, calculateEndTime } = require('../utils/eventTiming');
+    let finalDuration = Number(duration);
+    let finalEndTime = endTime;
+
+    if (finalDuration && finalDuration > 0) {
+      if (finalDuration < 0.5 || finalDuration > 168) {
+        return res.status(400).json({ message: 'Event duration must be between 0.5 hours (30 mins) and 168 hours.' });
+      }
+      if (!finalEndTime) {
+        finalEndTime = calculateEndTime(time, finalDuration);
+      }
+    } else if (endTime) {
+      const [sh, sm] = time.split(':').map(Number);
+      const [eh, em] = endTime.split(':').map(Number);
+      let diffMinutes = (eh * 60 + em) - (sh * 60 + sm);
+      if (diffMinutes <= 0) diffMinutes += 24 * 60; // Overnight
+      finalDuration = Math.round((diffMinutes / 60) * 10) / 10;
+    } else {
+      finalDuration = 2;
+      finalEndTime = calculateEndTime(time, 2);
+    }
+
     const startDateTime = combineDateAndTime(date, time);
-    const endDateTime = combineDateAndTime(date, endTime);
-
-    if (endDateTime <= startDateTime) {
-      return res.status(400).json({ message: 'endTime must be after time (start time)' });
-    }
-
     const now = new Date();
     if (startDateTime <= now) {
       return res.status(400).json({ message: 'Event date and start time cannot be in the past. Please choose a future date and time.' });
@@ -108,7 +124,8 @@ const createEvent = async (req, res) => {
       venue,
       date,
       time,
-      endTime,
+      duration: finalDuration,
+      endTime: finalEndTime,
       ticketPrice: finalPrice,
       totalSeats: finalTotalSeats,
       availableSeats: finalAvailableSeats,
@@ -184,18 +201,24 @@ const updateEvent = async (req, res) => {
       }
     }
 
-    if (req.body.date || req.body.time || req.body.endTime) {
-      const { combineDateAndTime } = require('../utils/eventTiming');
+    if (req.body.date || req.body.time || req.body.duration !== undefined || req.body.endTime) {
+      const { combineDateAndTime, calculateEndTime } = require('../utils/eventTiming');
       const updatedDate = req.body.date || event.date;
       const updatedTime = req.body.time || event.time;
-      const updatedEndTime = req.body.endTime || event.endTime;
-      const startDateTime = combineDateAndTime(updatedDate, updatedTime);
-      const endDateTime = combineDateAndTime(updatedDate, updatedEndTime);
+      let updatedDuration = req.body.duration !== undefined ? Number(req.body.duration) : event.duration;
 
-      if (endDateTime <= startDateTime) {
-        return res.status(400).json({ message: 'endTime must be after time (start time)' });
+      if (updatedDuration && (updatedDuration < 0.5 || updatedDuration > 168)) {
+        return res.status(400).json({ message: 'Event duration must be between 0.5 hours (30 mins) and 168 hours.' });
       }
 
+      if (updatedDuration) {
+        event.duration = updatedDuration;
+        event.endTime = calculateEndTime(updatedTime, updatedDuration);
+      } else if (req.body.endTime) {
+        event.endTime = req.body.endTime;
+      }
+
+      const startDateTime = combineDateAndTime(updatedDate, updatedTime);
       if (event.status === 'ACTIVE' && startDateTime <= new Date()) {
         return res.status(400).json({ message: 'Event date and start time cannot be in the past for an active event.' });
       }
@@ -207,6 +230,7 @@ const updateEvent = async (req, res) => {
       'venue',
       'date',
       'time',
+      'duration',
       'endTime',
       'ticketPrice',
       'availableSeats',

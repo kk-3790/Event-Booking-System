@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { downloadReportPdf } from '../utils/reportPdfGenerator';
-import { formatEventDate, formatDateTime, formatTimeRange12h } from '../utils/dateTime';
+import { formatEventDate, formatDateTime, formatTimeRange12h, formatEventSchedule } from '../utils/dateTime';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -659,7 +659,7 @@ export default function AdminDashboard() {
                     </td>
                     <td className="p-3.5 text-slate-400">
                       <div>{formatEventDate(e.date, false)}</div>
-                      {e.time && <div className="text-[10px] text-slate-500">{formatTimeRange12h(e.time, e.endTime)}</div>}
+                      {e.time && <div className="text-[10px] text-slate-500">{formatEventSchedule(e.time, e.duration, e.endTime)}</div>}
                       <div className="text-[10px] text-slate-500 truncate max-w-[150px]">{e.venue}</div>
                     </td>
                     <td className="p-3.5 font-extrabold text-white">₹{e.ticketPrice?.toLocaleString('en-IN')}</td>

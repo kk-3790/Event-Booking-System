@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import * as rewardService from '../services/rewardService';
 import Button from './ui/Button';
+import { isEventPastEnd, isEventStarted } from '../utils/dateTime';
 
 export default function RewardDrawModal({ isOpen, onClose, event }) {
   if (!isOpen || !event) return null;
@@ -54,30 +55,8 @@ export default function RewardDrawModal({ isOpen, onClose, event }) {
   }, [event._id]);
 
   const isCancelled = event.status === 'CANCELLED' || event.status === 'DELETED';
-  const isPastEndTime = () => {
-    if (!event.date) return false;
-    try {
-      const d = new Date(event.date);
-      const [h, m] = (event.endTime || event.time || '23:59').split(':').map(Number);
-      d.setHours(h || 0, m || 0, 0, 0);
-      return new Date() > d;
-    } catch {
-      return false;
-    }
-  };
-  const isStarted = () => {
-    if (!event.date) return false;
-    try {
-      const d = new Date(event.date);
-      const [h, m] = (event.time || '00:00').split(':').map(Number);
-      d.setHours(h || 0, m || 0, 0, 0);
-      return new Date() >= d;
-    } catch {
-      return false;
-    }
-  };
-  const isEventCompleted = event.status === 'COMPLETED' || (!isCancelled && isPastEndTime());
-  const isEventOngoing = !isCancelled && !isEventCompleted && (event.status === 'ONGOING' || isStarted());
+  const isEventCompleted = event.status === 'COMPLETED' || (!isCancelled && isEventPastEnd(event));
+  const isEventOngoing = !isCancelled && !isEventCompleted && (event.status === 'ONGOING' || isEventStarted(event));
   const isCompleted = drawData?.drawStatus === 'COMPLETED';
   const isCampaignLocked = isCompleted || isEventCompleted || isEventOngoing;
 
