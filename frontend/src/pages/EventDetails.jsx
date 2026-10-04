@@ -233,6 +233,42 @@ export default function EventDetails() {
     );
   }
 
+  if (isEventCancelled) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-6">
+        <div className="w-20 h-20 rounded-3xl bg-rose-500/15 text-rose-400 flex items-center justify-center mx-auto text-4xl border border-rose-500/30 shadow-xl shadow-rose-950/20">
+          <XCircle className="w-10 h-10 text-rose-400" />
+        </div>
+        <div className="space-y-2">
+          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30 inline-block">
+            Event Cancelled
+          </span>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-white">
+            {event.eventName}
+          </h1>
+          <p className="text-slate-400 text-sm max-w-md mx-auto leading-relaxed">
+            This event has been cancelled by the organizer. The booking page is closed and ticket sales are disabled.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
+          <Link to="/">
+            <Button variant="gradient" size="md">
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
+              <span>Explore Live Events</span>
+            </Button>
+          </Link>
+          {user && (
+            <Link to="/my-bookings">
+              <Button variant="secondary" size="md">
+                <span>View My Bookings</span>
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const baseTicketPrice = selectedTier ? selectedTier.price : (event.ticketPrice || 0);
   const maxAvailableSeats = selectedTier ? selectedTier.availableSeats : (event.availableSeats || 0);
   const discountPercent = appliedPromo?.discountPercentage || 0;

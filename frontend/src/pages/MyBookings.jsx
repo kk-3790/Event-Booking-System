@@ -524,8 +524,17 @@ export default function MyBookings() {
 
                     {/* Event Title & Location */}
                     <div>
-                      <h3 className="text-xl md:text-2xl font-black text-white hover:text-indigo-300 transition-colors">
-                        <Link to={`/events/${event._id}`}>{event.eventName || 'Event Details'}</Link>
+                      <h3 className="text-xl md:text-2xl font-black text-white transition-colors">
+                        {isEventListingCancelled || isEventCancelled ? (
+                          <span className="text-slate-400 cursor-not-allowed inline-flex items-center gap-2">
+                            <span className="line-through">{event.eventName || 'Cancelled Event'}</span>
+                            <span className="text-xs font-semibold text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20">Cancelled</span>
+                          </span>
+                        ) : (
+                          <Link to={`/events/${event._id}`} className="hover:text-indigo-300 transition-colors">
+                            {event.eventName || 'Event Details'}
+                          </Link>
+                        )}
                       </h3>
                       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 mt-2">
                         <span className="flex items-center gap-1 text-slate-300">
