@@ -94,6 +94,7 @@ const getEventDraw = async (req, res) => {
       draw: drawObj,
       isParticipating,
       userWinnerVoucher,
+      termsNotice: 'Note: The organizer reserves the right to modify this offer prior to the event.',
       availablePromos: Object.keys(STATIC_PROMOS).map((k) => ({
         code: k,
         discountPercentage: STATIC_PROMOS[k].discountPercentage,
@@ -385,7 +386,7 @@ const applyPromoCode = async (req, res) => {
         isPromotional: true,
         isContestEntry: true,
         nextBookingDiscount: draw.discountPercentage,
-        description: `Lucky Draw Contest Entry: Chance to win ${draw.discountPercentage}% OFF your next booking with this host!`,
+        description: `Lucky Draw Contest Entry: Chance to win ${draw.discountPercentage}% OFF your next booking with this host! (Note: The organizer reserves the right to modify this offer prior to event start.)`,
       });
     }
 

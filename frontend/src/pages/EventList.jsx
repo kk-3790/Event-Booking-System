@@ -511,7 +511,10 @@ export default function EventList() {
                       {/* Promotional Offer Ribbons */}
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         {event.activeDraw && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-300">
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold text-amber-300"
+                            title="Host Lucky Draw: Win discount on next booking. Note: The organizer reserves the right to modify this offer prior to event start."
+                          >
                             <Sparkles className="w-3 h-3 text-amber-400" />
                             <span>✨ Lucky Draw: Win {event.activeDraw.discountPercentage}% Off Next Booking</span>
                           </span>

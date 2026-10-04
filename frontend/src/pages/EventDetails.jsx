@@ -297,6 +297,32 @@ export default function EventDetails() {
           {/* Details Tabs & Overview */}
           <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-6 md:p-8 space-y-6 glass-card">
             
+            {/* Host Lucky Draw Campaign Feature Callout */}
+            {eventDraw && (
+              <div className="p-4.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 border border-amber-500/30 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <h4 className="text-sm font-bold text-amber-300">
+                      Host Promotional Lucky Draw: Win {eventDraw.discountPercentage}% OFF Next Booking
+                    </h4>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Active Campaign
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Book passes for this event to get enrolled in the host's lucky draw! {eventDraw.numberOfWinners || 2} lucky attendees will be chosen to win a {eventDraw.discountPercentage}% discount voucher for their next booking with this organizer.
+                </p>
+                <div className="pt-2 border-t border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-amber-300/90">
+                  <span>Apply promo code <strong className="text-white bg-slate-900/80 px-1.5 py-0.5 rounded border border-amber-500/30 font-mono">LUCKYDRAW</strong> at checkout.</span>
+                  <span className="text-[10px] text-amber-400/90 italic font-medium">
+                    * Note: The organizer reserves the right to modify this offer prior to the event.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Description & Overview */}
             {event.description && (
               <div className="space-y-3 pb-6 border-b border-slate-800/80">
@@ -512,9 +538,12 @@ export default function EventDetails() {
                   {(appliedPromo.isContestEntry || appliedPromo.code === 'LUCKYDRAW') && (
                     <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-[11px] text-amber-200 flex items-start gap-2">
                       <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                      <div>
+                      <div className="space-y-1">
                         <strong className="block text-amber-300 font-semibold">Enrolled in Lucky Draw Contest!</strong>
                         <span>Current pass is charged at regular price. If selected in the host draw, you will win a <strong>{appliedPromo.nextBookingDiscount || eventDraw?.discountPercentage}% OFF voucher</strong> for your next booking with this host!</span>
+                        <p className="text-[10px] text-amber-300/80 italic font-medium pt-0.5">
+                          * Note: The organizer reserves the right to modify this offer prior to the event.
+                        </p>
                       </div>
                     </div>
                   )}
@@ -564,6 +593,7 @@ export default function EventDetails() {
                             <div>
                               <span className="font-bold text-amber-300 block">{userWinnerVoucher.code}</span>
                               <span className="text-[10px] text-slate-300">{userWinnerVoucher.discountPercentage}% Off Organizer Winner Reward</span>
+                              <span className="text-[9px] text-amber-300/70 block mt-0.5">* Organizer reserves the right to modify voucher terms</span>
                             </div>
                           </div>
                           <span className="text-[11px] font-black text-amber-400 group-hover:underline">Apply</span>
@@ -580,6 +610,7 @@ export default function EventDetails() {
                             <div>
                               <span className="font-bold text-amber-300 block">LUCKYDRAW</span>
                               <span className="text-[10px] text-slate-400">Contest Entry • Win {eventDraw.discountPercentage}% Off Next Booking</span>
+                              <span className="text-[9px] text-amber-400/80 block mt-0.5 font-medium">* Organizer reserves the right to modify this offer</span>
                             </div>
                           </div>
                           <span className="text-[11px] font-bold text-amber-400 group-hover:underline">Apply</span>
