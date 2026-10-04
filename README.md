@@ -7,9 +7,15 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.3-38bdf8?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![MongoDB Atlas](https://img.shields.io/badge/MongoDB_Atlas-8.5-47a248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/atlas)
 [![Razorpay](https://img.shields.io/badge/Razorpay-Gateway-0c2340?style=for-the-badge&logo=razorpay&logoColor=white)](https://razorpay.com/)
+[![Live Frontend](https://img.shields.io/badge/Live_App-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://event-booking-system-umber-two.vercel.app/)
+[![Production API](https://img.shields.io/badge/API_Status-Live_on_Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://event-booking-backend-d2tw.onrender.com/)
 [![Test Suites](https://img.shields.io/badge/Edge_Case_Tests-72%2F72_Passed-success?style=for-the-badge&logo=checkmarx&logoColor=white)](backend/tests/)
 
+> 🌐 **Live Web Application**: [https://event-booking-system-umber-two.vercel.app](https://event-booking-system-umber-two.vercel.app/)  
+> ⚡ **Production API Base**: [https://event-booking-backend-d2tw.onrender.com](https://event-booking-backend-d2tw.onrender.com)
+
 **EventHub** is a high-performance, full-stack MERN event discovery, booking, and administrative platform engineered with enterprise-grade reliability. It features multi-tier ticket reservations, temporary hold expirations, bank-grade Razorpay payment processing with HMAC-SHA256 signature verification, camera-based gate QR check-ins, automated HTML emails with inline CID QR attachments, attendee lucky draws, and business intelligence reporting.
+
 
 ---
 
