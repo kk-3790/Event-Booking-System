@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import * as bookingService from '../services/bookingService';
 import Button from './ui/Button';
+import { formatEventDate, formatDateTime, formatTime12h, formatTimestampTime } from '../utils/dateTime';
 
 export default function AttendeesModal({ isOpen, onClose, event }) {
   if (!isOpen || !event) return null;
@@ -103,9 +104,9 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
       const u = b.user || {};
       const unitPrice = b.unitPrice || event.ticketPrice || 0;
       const total = b.totalAmount || (unitPrice * (b.ticketCount || 1));
-      const bookedTime = b.bookingTime || (b.createdAt ? new Date(b.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '');
+      const bookedTime = b.bookingTime ? formatTime12h(b.bookingTime) : (b.createdAt ? formatTimestampTime(b.createdAt) : '');
       const bookedAt = b.createdAt ? new Date(b.createdAt).toISOString() : '';
-      const checkedInTime = b.checkedInAt ? new Date(b.checkedInAt).toLocaleString('en-US') : '';
+      const checkedInTime = b.checkedInAt ? formatDateTime(b.checkedInAt) : '';
 
       return [
         `#BKG-${(b._id || '').toString().slice(-6).toUpperCase()}`,
@@ -317,20 +318,10 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
                   const isConfirmed = b.bookingStatus === 'CONFIRMED';
                   const isPending = b.bookingStatus === 'PENDING';
                   const total = b.totalAmount || ((b.unitPrice || event.ticketPrice || 0) * (b.ticketCount || 1));
-                  const bookedDate = b.createdAt
-                    ? new Date(b.createdAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })
-                    : 'N/A';
-                  const bookedTime = b.bookingTime || (b.createdAt
-                    ? new Date(b.createdAt).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                      })
-                    : '');
+                  const bookedDate = b.createdAt ? formatEventDate(b.createdAt, false) : 'N/A';
+                  const bookedTime = b.bookingTime 
+                    ? formatTime12h(b.bookingTime) 
+                    : (b.createdAt ? formatTimestampTime(b.createdAt) : '');
 
                   return (
                     <tr key={b._id} className="hover:bg-slate-800/30 transition-colors">
@@ -393,7 +384,7 @@ export default function AttendeesModal({ isOpen, onClose, event }) {
                             </span>
                             {b.checkedInAt && (
                               <span className="block text-[9px] text-slate-500 font-mono mt-0.5">
-                                {new Date(b.checkedInAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                {formatTimestampTime(b.checkedInAt)}
                               </span>
                             )}
                           </div>

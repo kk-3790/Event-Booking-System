@@ -140,7 +140,8 @@ const bookTicket = async (req, res) => {
     const totalAmount = subtotal + platformFee;
 
     const now = new Date();
-    const bookingTime = now.toLocaleTimeString('en-US', {
+    const bookingTime = now.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,

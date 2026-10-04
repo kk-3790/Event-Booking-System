@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import * as paymentService from '../services/paymentService';
+import { formatEventDate, formatDateTime, formatTime12h, formatTimestampTime } from '../utils/dateTime';
 import Button from './ui/Button';
 import { downloadTicketPdf } from '../utils/ticketPdfGenerator';
 
@@ -109,32 +110,11 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
   const platformFee = Math.round(subtotal * 0.05);
   const totalAmount = subtotal + platformFee;
 
-  const formattedDate = event.date 
-    ? new Date(event.date).toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      })
-    : 'Date TBD';
-
-  const issueDate = receiptData?.generatedDate 
-    ? new Date(receiptData.generatedDate).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : new Date().toLocaleDateString();
-
-  const bookingTimeStr = booking.bookingTime || (booking.createdAt 
-    ? new Date(booking.createdAt).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      })
-    : '');
+  const formattedDate = event.date ? formatEventDate(event.date) : 'Date TBD';
+  const issueDate = receiptData?.generatedDate ? formatDateTime(receiptData.generatedDate) : formatDateTime(new Date());
+  const bookingTimeStr = booking.bookingTime 
+    ? formatTime12h(booking.bookingTime) 
+    : (booking.createdAt ? formatTimestampTime(booking.createdAt) : '');
 
   return createPortal(
     <div id="receipt-modal-portal" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
@@ -236,7 +216,7 @@ export default function ReceiptModal({ isOpen, onClose, booking }) {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span>{formattedDate} {event.time ? `| ${event.time}` : ''}</span>
+                  <span>{formattedDate} {event.time ? `| ${formatTime12h(event.time)}` : ''}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-purple-300 font-medium">
                   <Users className="w-3.5 h-3.5 text-purple-400 shrink-0" />

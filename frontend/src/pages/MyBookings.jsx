@@ -28,6 +28,7 @@ import Button from '../components/ui/Button';
 import PaymentModal from '../components/PaymentModal';
 import ReceiptModal from '../components/ReceiptModal';
 import { downloadTicketPdf, downloadQrImage } from '../utils/ticketPdfGenerator';
+import { formatEventDate, formatTime12h, formatTimestampTime } from '../utils/dateTime';
 
 // Countdown Timer Component for PENDING bookings
 function ExpiryCountdown({ expiresAt, onExpire }) {
@@ -344,29 +345,18 @@ export default function MyBookings() {
             ));
 
             const formattedEventDate = event.date
-              ? new Date(event.date).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
+              ? formatEventDate(event.date)
               : 'Date TBD';
 
             const formattedBookedAt = booking.createdAt
-              ? new Date(booking.createdAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
+              ? formatEventDate(booking.createdAt, false)
               : 'N/A';
 
-            const formattedBookedTime = booking.bookingTime || (booking.createdAt
-              ? new Date(booking.createdAt).toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true,
-                })
-              : '');
+            const formattedBookedTime = booking.bookingTime
+              ? formatTime12h(booking.bookingTime)
+              : (booking.createdAt
+                ? formatTimestampTime(booking.createdAt)
+                : '');
 
             const totalAmount = booking.totalAmount || ((event.ticketPrice || 0) * booking.ticketCount);
             const ticketRef = `#BKG-${booking._id.slice(-6).toUpperCase()}`;
@@ -505,7 +495,7 @@ export default function MyBookings() {
                             <span>•</span>
                             <span className="flex items-center gap-1 text-slate-300">
                               <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                              {event.time}
+                              {formatTime12h(event.time)}
                             </span>
                           </>
                         )}

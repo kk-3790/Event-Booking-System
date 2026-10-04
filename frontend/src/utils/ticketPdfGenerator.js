@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { formatEventDate, formatTime12h, formatTimeRange12h } from './dateTime';
 
 /**
  * Generates and downloads an official high-resolution EventHub Ticket Pass PDF
@@ -93,14 +94,8 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.text(splitTitle, 11, 46);
 
   // Event Date, Time, Venue
-  const formattedDate = ev.date
-    ? new Date(ev.date).toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : 'Date TBD';
+  const formattedDate = ev.date ? formatEventDate(ev.date) : 'Date TBD';
+  const timeFormatted = ev.time ? (ev.endTime ? `${formatTime12h(ev.time)} - ${formatTime12h(ev.endTime)}` : formatTime12h(ev.time)) : '';
 
   const titleLinesCount = splitTitle.length;
   const dateY = titleLinesCount > 1 ? 55 : 53;
@@ -112,7 +107,7 @@ export const downloadTicketPdf = ({ booking, event, user, qrCodeDataUrl }) => {
   doc.text('DATE & TIME:', 11, dateY);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(226, 232, 240); // Slate-200
-  const dateTimeStr = fitText(doc, `${formattedDate} ${ev.time ? `at ${ev.time}` : ''}`, 62);
+  const dateTimeStr = fitText(doc, `${formattedDate}${timeFormatted ? ` • ${timeFormatted}` : ''}`, 62);
   doc.text(dateTimeStr, 33, dateY);
 
   doc.setFont('helvetica', 'bold');

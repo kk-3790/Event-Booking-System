@@ -37,6 +37,7 @@ import RewardDrawModal from '../components/RewardDrawModal';
 import CheckInScannerModal from '../components/CheckInScannerModal';
 import * as reportService from '../services/reportService';
 import { downloadReportPdf } from '../utils/reportPdfGenerator';
+import { formatEventDate, formatTimeRange12h } from '../utils/dateTime';
 
 const STANDARD_CATEGORIES = ['Technology', 'Concerts', 'Workshops', 'Networking', 'Sports'];
 const CATEGORIES = [...STANDARD_CATEGORIES, 'Other'];
@@ -758,13 +759,7 @@ export default function OrganizerDashboard() {
               )}
 
               {!loading && filteredEvents.map((event) => {
-                const formattedDate = event.date
-                  ? new Date(event.date).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })
-                  : 'N/A';
+                const formattedDate = event.date ? formatEventDate(event.date, false) : 'N/A';
 
                 const isCancelled = event.status === 'CANCELLED' || event.status === 'DELETED';
                 const isPastEndTime = () => {
@@ -795,7 +790,7 @@ export default function OrganizerDashboard() {
                     </td>
                     <td className="p-3.5 text-slate-300">
                       <div>{formattedDate}</div>
-                      <div className="text-[10px] text-slate-500">{event.time} – {event.endTime}</div>
+                      <div className="text-[10px] text-slate-500">{formatTimeRange12h(event.time, event.endTime)}</div>
                     </td>
                     <td className="p-3.5 text-slate-400 max-w-[150px] truncate">
                       {event.venue}

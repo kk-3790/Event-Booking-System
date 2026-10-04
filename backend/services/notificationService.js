@@ -71,7 +71,7 @@ const generateEmailHtml = ({ title, message, user, booking, qrImageSrc }) => {
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #64748b;">Booking Time:</td>
-                  <td style="padding: 6px 0; font-weight: bold; color: #ffffff; text-align: right;">${booking.bookingTime || (booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A')}</td>
+                  <td style="padding: 6px 0; font-weight: bold; color: #ffffff; text-align: right;">${booking.bookingTime || (booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A')}</td>
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #64748b;">Status:</td>
@@ -82,7 +82,7 @@ const generateEmailHtml = ({ title, message, user, booking, qrImageSrc }) => {
 
             ${(qrImageSrc || booking.qrCode) ? `
               <div style="text-align: center; margin: 24px 0;">
-                <a href="http://localhost:5173/my-bookings" target="_blank" style="text-decoration: none; display: inline-block;">
+                <a href="${process.env.FRONTEND_URL || 'https://event-booking-system-umber-two.vercel.app'}/my-bookings" target="_blank" style="text-decoration: none; display: inline-block;">
                   <div style="display: inline-block; background-color: #ffffff; padding: 18px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); text-align: center;">
                     <img src="${qrImageSrc || booking.qrCode}" alt="Entry Gate QR Code" width="160" height="160" style="display: block; margin: 0 auto; border: 0; width: 160px; height: 160px;" />
                     <p style="margin: 10px 0 0 0; color: #0f172a; font-family: 'Courier New', Courier, monospace; font-size: 13px; font-weight: 800; letter-spacing: 1.5px;">
@@ -98,7 +98,7 @@ const generateEmailHtml = ({ title, message, user, booking, qrImageSrc }) => {
           ` : ''}
 
           <div style="text-align: center; margin-top: 28px;">
-            <a href="http://localhost:5173/my-bookings" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: bold;">
+            <a href="${process.env.FRONTEND_URL || 'https://event-booking-system-umber-two.vercel.app'}/my-bookings" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-size: 14px; font-weight: bold;">
               View Pass in Wallet
             </a>
           </div>

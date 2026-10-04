@@ -19,6 +19,7 @@ import {
   Gift
 } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { formatEventDate, formatTime12h } from '../utils/dateTime';
 
 // Category color schemes for event header gradients
 const categoryStyles = {
@@ -418,11 +419,7 @@ export default function EventList() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedEvents.map((event) => {
               const theme = categoryStyles[event.category] || categoryStyles.Default;
-              const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              });
+              const formattedDate = formatEventDate(event.date);
 
               // Rough capacity estimate for progress display
               const capacity = event.availableSeats > 50 ? event.availableSeats + 40 : 100;
@@ -488,7 +485,7 @@ export default function EventList() {
                           <span>•</span>
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3 text-indigo-300" />
-                            {event.time}
+                            {formatTime12h(event.time)}
                           </span>
                         </div>
                         <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-2 leading-snug">

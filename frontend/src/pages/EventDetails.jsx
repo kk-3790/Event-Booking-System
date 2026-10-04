@@ -30,6 +30,7 @@ import Button from '../components/ui/Button';
 import PaymentModal from '../components/PaymentModal';
 import * as rewardService from '../services/rewardService';
 import { downloadTicketPdf } from '../utils/ticketPdfGenerator';
+import { formatEventDate, formatTime12h, formatTimeRange12h, formatTimestampTime } from '../utils/dateTime';
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -227,12 +228,7 @@ export default function EventDetails() {
   const platformFee = Math.round(discountedSubtotal * 0.05);
   const totalAmount = discountedSubtotal + platformFee;
 
-  const eventDate = new Date(event.date).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const eventDate = formatEventDate(event.date);
 
   return (
     <div className="min-h-screen pb-20 pt-6 px-4 lg:px-8 max-w-7xl mx-auto w-full space-y-8">
@@ -292,7 +288,7 @@ export default function EventDetails() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-indigo-400" />
-                  <span>{event.time} – {event.endTime}</span>
+                  <span>{formatTimeRange12h(event.time, event.endTime)}</span>
                 </div>
               </div>
             </div>
@@ -757,7 +753,7 @@ export default function EventDetails() {
               <div className="flex justify-between">
                 <span className="text-slate-400">Booking Time:</span>
                 <span className="font-bold text-slate-200 font-mono">
-                  {bookingSuccess?.bookingTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                  {bookingSuccess?.bookingTime ? formatTime12h(bookingSuccess.bookingTime) : formatTimestampTime(new Date())}
                 </span>
               </div>
             </div>
