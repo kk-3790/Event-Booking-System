@@ -7,7 +7,7 @@ const eventSchema = new mongoose.Schema(
     venue: { type: String, required: true },
     date: { type: Date, required: true },
     time: { type: String, required: true }, // start time, e.g. "18:30"
-    duration: { type: Number, default: 2, min: 0.5 }, // duration in hours (e.g. 2, 3, 4)
+    duration: { type: Number, default: 2, min: 0.5, max: 24 }, // duration in hours (min: 0.5, max: 24)
     endTime: { type: String }, // optional/calculated end time, e.g. "21:00"
     ticketPrice: { type: Number, required: true, min: 0 },
     totalSeats: { type: Number, min: 0 },

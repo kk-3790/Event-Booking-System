@@ -310,8 +310,8 @@ export default function OrganizerDashboard() {
       setModalError('Duration must be at least 0.5 hours (30 minutes).');
       return;
     }
-    if (durationNum > 168) {
-      setModalError('Duration cannot exceed 168 hours (7 days).');
+    if (durationNum > 24) {
+      setModalError('Duration cannot exceed 24 hours (maximum allowed limit is 24 hours).');
       return;
     }
 
@@ -1465,22 +1465,63 @@ export default function OrganizerDashboard() {
 
                 <div>
                   <Input
-                    label="Duration (Hours)"
+                    label="Duration (Hours - max 24h)"
                     id="duration"
                     name="duration"
                     type="number"
                     step="0.5"
                     min="0.5"
-                    max="72"
+                    max="24"
                     value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setFormData({ ...formData, duration: '' });
+                      } else {
+                        const num = Number(val);
+                        if (num > 24) {
+                          setFormData({ ...formData, duration: 24 });
+                        } else {
+                          setFormData({ ...formData, duration: val });
+                        }
+                      }
+                    }}
                     required
                   />
-                  {formData.time && formData.duration && (
-                    <div className="mt-1 text-[11px] text-indigo-400 font-medium flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-500 font-semibold mr-0.5">Presets:</span>
+                    {[1, 2, 3, 4, 6, 8, 12, 24].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, duration: preset })}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition cursor-pointer ${
+                          Number(formData.duration) === preset
+                            ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500/50'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                        }`}
+                      >
+                        {preset}h
+                      </button>
+                    ))}
+                  </div>
+                  {formData.time && formData.duration !== '' && (
+                    <div className="mt-1.5 text-[11px] text-indigo-400 font-medium flex items-center justify-between">
                       <span>Ends: {formatCalculatedEndTime(formData.time, formData.duration)}</span>
-                      <span className="text-slate-500 text-[10px]">({formData.duration} {Number(formData.duration) === 1 ? 'hr' : 'hrs'})</span>
+                      <span className="text-slate-500 text-[10px]">
+                        ({formData.duration} {Number(formData.duration) === 1 ? 'hr' : 'hrs'} • Max 24 hrs)
+                      </span>
                     </div>
+                  )}
+                  {Number(formData.duration) > 24 && (
+                    <p className="mt-1 text-[11px] text-rose-400 font-semibold">
+                      Duration cannot exceed 24 hours.
+                    </p>
+                  )}
+                  {formData.duration !== '' && Number(formData.duration) < 0.5 && (
+                    <p className="mt-1 text-[11px] text-rose-400 font-semibold">
+                      Minimum duration is 0.5 hours (30 minutes).
+                    </p>
                   )}
                 </div>
               </div>

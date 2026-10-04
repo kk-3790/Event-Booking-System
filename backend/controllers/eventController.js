@@ -55,8 +55,8 @@ const createEvent = async (req, res) => {
     let finalEndTime = endTime;
 
     if (finalDuration && finalDuration > 0) {
-      if (finalDuration < 0.5 || finalDuration > 168) {
-        return res.status(400).json({ message: 'Event duration must be between 0.5 hours (30 mins) and 168 hours.' });
+      if (finalDuration < 0.5 || finalDuration > 24) {
+        return res.status(400).json({ message: 'Event duration must be between 0.5 hours (30 mins) and 24 hours.' });
       }
       if (!finalEndTime) {
         finalEndTime = calculateEndTime(time, finalDuration);
@@ -207,8 +207,8 @@ const updateEvent = async (req, res) => {
       const updatedTime = req.body.time || event.time;
       let updatedDuration = req.body.duration !== undefined ? Number(req.body.duration) : event.duration;
 
-      if (updatedDuration && (updatedDuration < 0.5 || updatedDuration > 168)) {
-        return res.status(400).json({ message: 'Event duration must be between 0.5 hours (30 mins) and 168 hours.' });
+      if (updatedDuration && (updatedDuration < 0.5 || updatedDuration > 24)) {
+        return res.status(400).json({ message: 'Event duration must be between 0.5 hours (30 mins) and 24 hours.' });
       }
 
       if (updatedDuration) {
