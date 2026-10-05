@@ -15,7 +15,9 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
-  Users
+  Users,
+  SwitchCamera,
+  Loader2
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import * as bookingService from '../services/bookingService';
@@ -69,13 +71,19 @@ export default function CheckInScannerModal({ isOpen, onClose, event, onCheckInC
   const [loading, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [stats, setStats] = useState({ totalConfirmed: 0, checkedIn: 0 });
   const [recentCheckIns, setRecentCheckIns] = useState([]);
   
   const scannerRef = useRef(null);
   const scannerContainerId = 'gate-qr-reader-container';
+  const isProcessingScanRef = useRef(false);
+  const lastScannedCodeRef = useRef('');
+  const lastScanTimeRef = useRef(0);
 
   // Load initial check-in stats
   const fetchStats = async () => {
@@ -96,51 +104,178 @@ export default function CheckInScannerModal({ isOpen, onClose, event, onCheckInC
     fetchStats();
   }, [event._id]);
 
-  // Clean up scanner on unmount or modal close
+  // Enumerate cameras on modal mount so user sees available hardware
   useEffect(() => {
+    let isMounted = true;
+    const probeCameras = async () => {
+      try {
+        if (navigator?.mediaDevices?.enumerateDevices) {
+          const devices = await Html5Qrcode.getCameras();
+          if (isMounted && devices && devices.length > 0) {
+            setAvailableCameras(devices);
+            // Default to back/rear camera if present, otherwise first available
+            const rearCamera = devices.find((c) => /back|rear|environment|macro/i.test(c.label));
+            setSelectedCameraId(rearCamera ? rearCamera.id : devices[0].id);
+          }
+        }
+      } catch (err) {
+        console.warn('Probe cameras warning:', err.message);
+      }
+    };
+    probeCameras();
     return () => {
+      isMounted = false;
       stopCameraScanner();
     };
   }, []);
 
-  const startCameraScanner = async () => {
+  const startCameraScanner = async (specificCameraId = null) => {
+    setCameraLoading(true);
     setCameraError('');
+
+    // Check mediaDevices support and secure context
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setCameraError(
+        window.isSecureContext === false
+          ? 'Camera requires a secure connection (HTTPS or localhost). Please open this app via HTTPS or localhost.'
+          : 'Your browser does not support camera access. Please use a modern browser (Chrome, Safari, or Edge).'
+      );
+      setCameraLoading(false);
+      setCameraActive(false);
+      return;
+    }
+
+    // Stop and clear any existing instance first
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
+        await scannerRef.current.clear();
+      } catch (e) {
+        // ignore
+      }
+      scannerRef.current = null;
+    }
+
     try {
-      if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(scannerContainerId);
+      // 1. Enumerate available video cameras
+      let cameras = [];
+      try {
+        cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length > 0) {
+          setAvailableCameras(cameras);
+        }
+      } catch (e) {
+        console.warn('Could not enumerate cameras prior to start:', e.message);
       }
 
-      await scannerRef.current.start(
-        { facingMode: 'environment' },
-        {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-          aspectRatio: 1.0,
+      // 2. Instantiate Html5Qrcode with container ID
+      scannerRef.current = new Html5Qrcode(scannerContainerId);
+
+      // 3. Determine camera source config
+      const targetId = specificCameraId || selectedCameraId;
+      let cameraConfig = null;
+
+      if (targetId && cameras.some((c) => c.id === targetId)) {
+        cameraConfig = targetId;
+      } else if (cameras && cameras.length > 0) {
+        const rearCamera = cameras.find((c) => /back|rear|environment|macro/i.test(c.label));
+        const chosen = rearCamera || cameras[0];
+        cameraConfig = chosen.id;
+        setSelectedCameraId(chosen.id);
+      }
+
+      const scanConfig = {
+        fps: 10,
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+          const edge = Math.min(viewfinderWidth, viewfinderHeight);
+          const size = Math.max(160, Math.floor(edge * 0.72));
+          return { width: size, height: size };
         },
-        (decodedText) => {
-          handleVerifyTicket(decodedText);
-        },
-        (errorMessage) => {
-          // ignore scan frame errors
+        aspectRatio: 1.0,
+      };
+
+      const onScanSuccess = (decodedText) => {
+        const now = Date.now();
+        if (isProcessingScanRef.current) return;
+        if (decodedText === lastScannedCodeRef.current && now - lastScanTimeRef.current < 2500) {
+          return;
         }
-      );
+        isProcessingScanRef.current = true;
+        lastScannedCodeRef.current = decodedText;
+        lastScanTimeRef.current = now;
+
+        handleVerifyTicket(decodedText).finally(() => {
+          setTimeout(() => {
+            isProcessingScanRef.current = false;
+          }, 800);
+        });
+      };
+
+      const onScanError = () => {
+        // ignore frame parse error
+      };
+
+      // Try starting with target camera device ID
+      if (cameraConfig) {
+        try {
+          await scannerRef.current.start(cameraConfig, scanConfig, onScanSuccess, onScanError);
+          setCameraActive(true);
+          setCameraLoading(false);
+          return;
+        } catch (errDev) {
+          console.warn('Specific camera start failed, attempting facingMode fallbacks:', errDev.message);
+        }
+      }
+
+      // Fallback A: Try { facingMode: 'environment' } (mobile rear camera)
+      try {
+        await scannerRef.current.start({ facingMode: 'environment' }, scanConfig, onScanSuccess, onScanError);
+        setCameraActive(true);
+        setCameraLoading(false);
+        return;
+      } catch (errEnv) {
+        console.warn('Environment facingMode failed, trying user camera fallback:', errEnv.message);
+      }
+
+      // Fallback B: Try { facingMode: 'user' } (FaceTime / Laptop webcam on macOS/Windows)
+      await scannerRef.current.start({ facingMode: 'user' }, scanConfig, onScanSuccess, onScanError);
       setCameraActive(true);
+      setCameraLoading(false);
+
     } catch (err) {
-      setCameraError(err.message || 'Could not access device camera. Please check permissions.');
+      console.error('Camera scanner startup error:', err);
+      let message = 'Could not access device camera. Please check camera permissions.';
+      if (err.name === 'NotAllowedError' || err.message?.includes('Permission') || err.message?.includes('denied')) {
+        message = 'Camera permission was denied. Please allow camera access in your browser address bar settings and click Start Scanner again.';
+      } else if (err.name === 'NotFoundError' || err.message?.includes('device not found')) {
+        message = 'No camera found on this device. Please connect a webcam or use manual reference lookup.';
+      } else if (err.name === 'NotReadableError' || err.message?.includes('Could not start video source')) {
+        message = 'Camera is in use by another application (e.g., Zoom, FaceTime). Please close other apps and try again.';
+      } else if (err.message) {
+        message = err.message;
+      }
+      setCameraError(message);
       setCameraActive(false);
+      setCameraLoading(false);
     }
   };
 
   const stopCameraScanner = async () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
+    if (scannerRef.current) {
       try {
-        await scannerRef.current.stop();
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
         await scannerRef.current.clear();
       } catch (e) {
-        // scanner stopped
+        // ignore cleanup error
       }
+      scannerRef.current = null;
     }
     setCameraActive(false);
+    setCameraLoading(false);
   };
 
   const toggleCamera = () => {
@@ -148,6 +283,14 @@ export default function CheckInScannerModal({ isOpen, onClose, event, onCheckInC
       stopCameraScanner();
     } else {
       startCameraScanner();
+    }
+  };
+
+  const handleSwitchCamera = async (newCameraId) => {
+    setSelectedCameraId(newCameraId);
+    if (cameraActive) {
+      await stopCameraScanner();
+      await startCameraScanner(newCameraId);
     }
   };
 
@@ -283,54 +426,96 @@ export default function CheckInScannerModal({ isOpen, onClose, event, onCheckInC
 
           {/* Camera Scanner Viewport */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Camera className="w-3.5 h-3.5 text-indigo-400" />
                 Live Camera QR Scanner
               </span>
-              <Button
-                variant={cameraActive ? 'destructive' : 'gradient'}
-                size="sm"
-                onClick={toggleCamera}
-                className="cursor-pointer"
-              >
-                {cameraActive ? (
-                  <>
-                    <CameraOff className="w-3.5 h-3.5 mr-1" />
-                    <span>Stop Camera</span>
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-3.5 h-3.5 mr-1" />
-                    <span>Start Scanner</span>
-                  </>
+
+              <div className="flex items-center gap-2">
+                {/* Camera Selector (if multiple cameras available) */}
+                {availableCameras.length > 1 && (
+                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1">
+                    <SwitchCamera className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <select
+                      value={selectedCameraId}
+                      onChange={(e) => handleSwitchCamera(e.target.value)}
+                      disabled={cameraLoading}
+                      className="bg-transparent text-white text-[11px] font-medium focus:outline-none cursor-pointer max-w-[140px] truncate"
+                      title="Select Camera"
+                    >
+                      {availableCameras.map((cam, idx) => (
+                        <option key={cam.id} value={cam.id} className="bg-slate-900 text-white">
+                          {cam.label || `Camera ${idx + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
-              </Button>
+
+                <Button
+                  variant={cameraActive ? 'destructive' : 'gradient'}
+                  size="sm"
+                  onClick={toggleCamera}
+                  loading={cameraLoading}
+                  disabled={cameraLoading}
+                  className="cursor-pointer"
+                >
+                  {cameraActive ? (
+                    <>
+                      <CameraOff className="w-3.5 h-3.5 mr-1" />
+                      <span>Stop Camera</span>
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-3.5 h-3.5 mr-1" />
+                      <span>Start Scanner</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <div 
-              id={scannerContainerId} 
-              className={`rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden transition-all relative ${
-                cameraActive ? 'min-h-[260px]' : 'h-36 flex items-center justify-center text-center p-4'
-              }`}
-            >
+            {/* Viewport Box */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden relative min-h-[260px] flex flex-col justify-center">
+              {/* Dedicated mounting container for Html5Qrcode - NEVER place React children inside this */}
+              <div 
+                id={scannerContainerId} 
+                className={`w-full overflow-hidden ${cameraActive ? 'block' : 'hidden'}`}
+              />
+
+              {/* Idle placeholder shown when camera is off */}
               {!cameraActive && (
-                <div className="space-y-2">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
-                    <Camera className="w-5 h-5" />
+                <div className="py-10 px-4 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto shadow-inner">
+                    <Camera className="w-6 h-6 text-indigo-400" />
                   </div>
-                  <p className="text-xs text-slate-400">
-                    Camera is currently idle. Click <span className="text-white font-semibold">Start Scanner</span> to enable camera gate admission.
-                  </p>
+                  <div className="space-y-1 max-w-sm mx-auto">
+                    <p className="text-sm font-semibold text-white">Camera is currently idle</p>
+                    <p className="text-xs text-slate-400">
+                      Click <span className="text-indigo-400 font-semibold">Start Scanner</span> to enable camera gate admission.
+                    </p>
+                  </div>
+                  {availableCameras.length > 0 && (
+                    <p className="text-[11px] text-slate-500 font-mono">
+                      {availableCameras.length} camera device{availableCameras.length > 1 ? 's' : ''} detected on this system
+                    </p>
+                  )}
                 </div>
               )}
             </div>
 
             {cameraError && (
-              <p className="text-xs text-rose-400 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" />
-                {cameraError}
-              </p>
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-bold text-white block">Camera Access Notice</span>
+                  <span className="text-[11px] text-rose-300/90 leading-relaxed block">{cameraError}</span>
+                  <p className="text-[10px] text-slate-400 pt-0.5">
+                    Tip: You can also verify tickets instantly by typing or pasting the Booking ID in the Manual Reference Lookup box below.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 

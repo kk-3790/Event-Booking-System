@@ -353,3 +353,24 @@ html.light textarea::placeholder {
     display: none !important;
   }
 }
+
+/* ================= GATE SCANNER CAMERA VIEWPORT ================= */
+#gate-qr-reader-container {
+  border: none !important;
+  background-color: transparent !important;
+}
+
+#gate-qr-reader-container video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 1rem !important;
+}
+
+#gate-qr-reader-container #gate-qr-reader-container__scan_region {
+  border-radius: 1rem !important;
+}
+
+#gate-qr-reader-container img {
+  display: none !important;
+}
