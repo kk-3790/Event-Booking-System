@@ -58,7 +58,7 @@ const seedDB = async () => {
     });
 
     const organizer2 = await User.create({
-      name: 'Kabir Mehta (LivePulse Productions)',
+      name: 'Kabir Mehra (LivePulse Productions)',
       email: 'music.org@eventhub.com',
       mobile: '9876543219',
       password: orgPass,
@@ -631,7 +631,7 @@ const seedDB = async () => {
     console.log('Available Login Credentials:');
     console.log('  1. Admin:     admin@eventhub.com     / admin123');
     console.log('  2. Organizer: organizer@eventhub.com / organizer123  (Priya Sharma)');
-    console.log('  3. Organizer: music.org@eventhub.com / organizer123  (Kabir Mehta)');
+    console.log('  3. Organizer: music.org@eventhub.com / organizer123  (Kabir Mehra)');
     console.log('  4. Customer:  customer@eventhub.com  / customer123   (Krish Patel)');
     console.log('-----------------------------------------------------------------');
     console.log("Ready-to-Scan Gate Test Tickets for Today's AI Summit:");
